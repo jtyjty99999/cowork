@@ -3,6 +3,9 @@
 import { useState, useCallback } from 'react';
 import { AppState, Task, Message, Artifact, WorkingFile, ProgressStep } from '@/types';
 import { aiService, AIMessage } from '@/lib/ai-service';
+import { parseToolCalls, executeToolCalls, generateToolsDocumentation } from '@/lib/tools';
+import { setWorkspacePath } from '@/lib/workspace-context';
+import { parsePlan, getPlanningPrompt } from '@/lib/task-planner';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -13,6 +16,8 @@ const initialState: AppState = {
   artifacts: {},
   workingFiles: {},
   progressSteps: {},
+  isAIResponding: false,
+  workspacePath: './workspace',
 };
 
 export const useCowork = () => {
@@ -124,6 +129,27 @@ export const useCowork = () => {
             ...(prev.workingFiles[targetTaskId] || []),
             ...newFiles,
           ],
+        },
+      };
+    });
+  }, []);
+
+  const setWorkingFiles = useCallback((filenames: string[], taskId?: string) => {
+    setState(prev => {
+      const targetTaskId = taskId || prev.currentTaskId;
+      if (!targetTaskId) return prev;
+
+      const newFiles: WorkingFile[] = filenames.map(filename => ({
+        id: generateId(),
+        filename,
+        addedAt: new Date(),
+      }));
+
+      return {
+        ...prev,
+        workingFiles: {
+          ...prev.workingFiles,
+          [targetTaskId]: newFiles, // 直接替换，不追加
         },
       };
     });
@@ -252,8 +278,40 @@ export const useCowork = () => {
    */
   const getRealAIResponse = useCallback(async (userMessage: string) => {
     try {
+      // 设置 AI 正在响应状态
+      setState(prev => ({ ...prev, isAIResponding: true }));
+
       // 更新进度
       updateProgress([
+        { status: 'in_progress', label: 'Preparing context' },
+      ]);
+
+      // 获取工作区文件列表（提供上下文）
+      let workspaceContext = '';
+      try {
+        const response = await fetch('/api/filesystem/list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: '.' }),
+        });
+        
+        if (response.ok) {
+          const files = await response.json();
+          if (files.length > 0) {
+            workspaceContext = `\n\n[Workspace Context]\nAvailable files in workspace:\n${files.map((f: any) => `- ${f.name} (${f.type})`).join('\n')}`;
+            
+            // 设置工作文件列表（替换而不是追加）
+            setWorkingFiles(files.slice(0, 5).map((f: any) => f.name));
+          } else {
+            workspaceContext = '\n\n[Workspace Context]\nThe workspace directory is empty. You can create files or ask the user to add files to the workspace.';
+          }
+        }
+      } catch (error) {
+        console.error('获取工作区上下文失败:', error);
+      }
+
+      updateProgress([
+        { status: 'completed', label: 'Context prepared' },
         { status: 'in_progress', label: 'Sending request to AI' },
       ]);
 
@@ -261,28 +319,264 @@ export const useCowork = () => {
       setState(prev => {
         const currentMessages = prev.currentTaskId ? prev.messages[prev.currentTaskId] || [] : [];
         
-        // 转换为 AI 服务需要的格式
-        const aiMessages: AIMessage[] = currentMessages.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-        }));
+        // 转换为 AI 服务需要的格式，并添加系统提示
+        const aiMessages: AIMessage[] = [
+          {
+            role: 'system',
+            content: `You are a helpful AI assistant with access to a workspace filesystem, command execution, and internet access capabilities.
+
+${getPlanningPrompt()}
+
+${generateToolsDocumentation()}
+
+When the user asks you to perform file operations (create, read, write, delete files), you MUST use the tool calling format shown above. For example:
+
+User: "请帮我创建一个 hello.txt 文件，内容是 Hello World"
+You should respond with:
+我来帮你创建文件。
+
+\`\`\`tool:write_file
+{
+  "path": "hello.txt",
+  "content": "Hello World"
+}
+\`\`\`
+
+**IMPORTANT JSON RULES:**
+- All JSON must be valid and properly escaped
+- For multi-line content, use \\n for newlines
+- Escape special characters: \\" for quotes, \\\\ for backslashes
+- Do NOT use unescaped newlines in JSON strings
+- Example of correct multi-line content:
+\`\`\`tool:write_file
+{
+  "path": "report.md",
+  "content": "# Title\\n\\nThis is line 1\\nThis is line 2\\n\\n## Section\\nMore content"
+}
+\`\`\`
+
+文件已创建成功！
+
+IMPORTANT: 
+- Always use tool calls for file operations, don't just describe what you would do
+- The system will automatically execute your tool calls and show results
+- You can call multiple tools in one response
+- All file paths are relative to the workspace directory (./workspace)
+
+**When using fetch_url tool**:
+- After the tool returns data, you will see the raw response
+- You MUST analyze and summarize the data in a user-friendly way
+- Extract key information and present it clearly
+- For financial data, show prices, changes, trends
+- For API responses, explain what the data means
+- Don't just show raw JSON, interpret it for the user
+
+Current workspace status:${workspaceContext}`,
+          },
+          ...currentMessages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        ];
 
         // 调用 AI 服务（异步）
         (async () => {
           try {
             const response = await aiService.chat(aiMessages);
             
-            // 添加 AI 响应
-            addMessage({
-              role: 'assistant',
-              content: response.content,
-            });
+            // 首先检查是否有任务计划
+            const taskPlan = parsePlan(response.content);
+            
+            if (taskPlan) {
+              // AI 创建了任务计划，显示计划并逐步执行
+              addMessage({
+                role: 'assistant',
+                content: response.content,
+                taskPlan: taskPlan.map(step => ({
+                  id: step.id,
+                  description: step.description,
+                  status: step.status,
+                })),
+              });
 
-            // 更新进度为完成
-            updateProgress([
-              { status: 'completed', label: 'Request sent' },
-              { status: 'completed', label: 'Response received' },
-            ]);
+              // 更新进度步骤显示任务计划
+              const planSteps: ProgressStep[] = taskPlan.map(step => ({
+                status: 'pending' as const,
+                label: step.description,
+              }));
+              updateProgress(planSteps);
+
+              // 逐步执行任务
+              for (let i = 0; i < taskPlan.length; i++) {
+                const step = taskPlan[i];
+                
+                // 更新当前步骤状态为进行中
+                updateProgress(taskPlan.map((s, idx) => ({
+                  status: idx < i ? 'completed' : idx === i ? 'in_progress' : 'pending',
+                  label: s.description,
+                })));
+
+                if (step.tool) {
+                  // 步骤需要调用工具
+                  // 让 AI 为这个步骤生成工具调用
+                  const stepMessages: AIMessage[] = [
+                    ...aiMessages,
+                    { role: 'assistant', content: response.content },
+                    { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}。请使用 ${step.tool} 工具完成这个步骤。` },
+                  ];
+
+                  const stepResponse = await aiService.chat(stepMessages);
+                  const stepToolCalls = parseToolCalls(stepResponse.content);
+
+                  if (stepToolCalls.length > 0) {
+                    // 执行工具
+                    const toolResults = await executeToolCalls(stepToolCalls);
+                    
+                    // 保存结果
+                    step.result = toolResults[0];
+                    step.status = toolResults[0].success ? 'completed' : 'failed';
+
+                    // 如果是文件写入，添加到 Artifacts
+                    stepToolCalls.forEach((tc: any, idx: number) => {
+                      if (tc.tool === 'write_file' && toolResults[idx].success) {
+                        const filePath = tc.parameters.path;
+                        addArtifact(filePath);
+                      }
+                    });
+
+                    // 添加步骤执行消息
+                    addMessage({
+                      role: 'assistant',
+                      content: stepResponse.content,
+                      toolCalls: stepToolCalls.map((tc: any, idx: number) => ({
+                        tool: tc.tool,
+                        parameters: tc.parameters,
+                        result: {
+                          success: toolResults[idx].success,
+                          data: toolResults[idx].result,
+                          error: toolResults[idx].error,
+                        },
+                      })),
+                    });
+                  }
+                } else {
+                  // 步骤不需要工具，让 AI 思考或分析
+                  const stepMessages: AIMessage[] = [
+                    ...aiMessages,
+                    { role: 'assistant', content: response.content },
+                    { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}` },
+                  ];
+
+                  const stepResponse = await aiService.chat(stepMessages);
+                  
+                  addMessage({
+                    role: 'assistant',
+                    content: stepResponse.content,
+                  });
+
+                  step.status = 'completed';
+                }
+              }
+
+              // 所有步骤完成
+              updateProgress(taskPlan.map(s => ({
+                status: 'completed' as const,
+                label: s.description,
+              })));
+
+              // 重置 AI 响应状态
+              setState(prev => ({ ...prev, isAIResponding: false }));
+              return;
+            }
+            
+            // 检查是否有工具调用（没有任务计划的情况）
+            const toolCalls = parseToolCalls(response.content);
+            
+            if (toolCalls.length > 0) {
+              updateProgress([
+                { status: 'completed', label: 'Response received' },
+                { status: 'in_progress', label: 'Executing tools' },
+              ]);
+
+              // 执行工具调用
+              const toolResults = await executeToolCalls(toolCalls);
+              
+              // 如果是文件写入，添加到 Artifacts
+              toolCalls.forEach((tc: any, idx: number) => {
+                if (tc.tool === 'write_file' && toolResults[idx].success) {
+                  const filePath = tc.parameters.path;
+                  addArtifact(filePath);
+                }
+              });
+              
+              // 构建带有工具调用信息的消息
+              const toolCallsWithResults = toolCalls.map((toolCall: any, index: number) => ({
+                tool: toolCall.tool,
+                parameters: toolCall.parameters,
+                result: {
+                  success: toolResults[index].success,
+                  data: toolResults[index].result,
+                  error: toolResults[index].error,
+                },
+              }));
+
+              // 添加 AI 响应（包含工具调用信息）
+              addMessage({
+                role: 'assistant',
+                content: response.content,
+                toolCalls: toolCallsWithResults,
+              });
+
+              updateProgress([
+                { status: 'completed', label: 'Tools executed' },
+                { status: 'in_progress', label: 'Analyzing results' },
+              ]);
+
+              // 将工具结果发送给 AI 进行分析
+              const resultsMessage = toolCallsWithResults.map((tc: any) => {
+                const resultText = tc.result.success 
+                  ? (typeof tc.result.data === 'string' ? tc.result.data : JSON.stringify(tc.result.data, null, 2))
+                  : `Error: ${tc.result.error}`;
+                return `Tool: ${tc.tool}\nResult:\n${resultText}`;
+              }).join('\n\n---\n\n');
+
+              // 再次调用 AI 分析结果
+              const analysisMessages: AIMessage[] = [
+                ...aiMessages,
+                { role: 'assistant', content: response.content },
+                { role: 'user', content: `工具执行结果：\n\n${resultsMessage}\n\n请分析上述数据并用易读的方式总结关键信息。` },
+              ];
+
+              const analysisResponse = await aiService.chat(analysisMessages);
+              
+              // 添加分析结果
+              addMessage({
+                role: 'assistant',
+                content: analysisResponse.content,
+              });
+
+              updateProgress([
+                { status: 'completed', label: 'Analysis complete' },
+              ]);
+
+              // 重置 AI 响应状态
+              setState(prev => ({ ...prev, isAIResponding: false }));
+            } else {
+              // 没有工具调用，直接添加响应
+              addMessage({
+                role: 'assistant',
+                content: response.content,
+              });
+
+              updateProgress([
+                { status: 'completed', label: 'Context prepared' },
+                { status: 'completed', label: 'Request sent' },
+                { status: 'completed', label: 'Response received' },
+              ]);
+
+              // 重置 AI 响应状态
+              setState(prev => ({ ...prev, isAIResponding: false }));
+            }
           } catch (error) {
             console.error('AI 响应失败:', error);
             
@@ -293,9 +587,13 @@ export const useCowork = () => {
             });
 
             updateProgress([
+              { status: 'completed', label: 'Context prepared' },
               { status: 'completed', label: 'Request sent' },
               { status: 'completed', label: 'Error occurred' },
             ]);
+
+            // 重置 AI 响应状态
+            setState(prev => ({ ...prev, isAIResponding: false }));
           }
         })();
 
@@ -304,18 +602,39 @@ export const useCowork = () => {
     } catch (error) {
       console.error('处理 AI 请求失败:', error);
     }
-  }, [addMessage, updateProgress]);
+  }, [addMessage, updateProgress, setWorkingFiles]);
+
+  /**
+   * 切换工作区
+   */
+  const changeWorkspace = useCallback((path: string) => {
+    // 更新全局工作区上下文
+    setWorkspacePath(path);
+    
+    setState(prev => ({
+      ...prev,
+      workspacePath: path,
+    }));
+    
+    // 清空当前工作文件列表
+    if (state.currentTaskId) {
+      setWorkingFiles([], state.currentTaskId);
+    }
+  }, [state.currentTaskId, setWorkingFiles]);
 
   return {
     state,
+    workspacePath: state.workspacePath,
     createNewTask,
     selectTask,
     updateTaskTitle,
     addMessage,
     addArtifact,
     addWorkingFiles,
+    setWorkingFiles,
     updateProgress,
     simulateAIResponse,
-    getRealAIResponse, // 导出真实 AI 响应函数
+    getRealAIResponse,
+    changeWorkspace,
   };
 };

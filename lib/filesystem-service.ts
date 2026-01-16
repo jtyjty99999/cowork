@@ -34,12 +34,12 @@ export class FileSystemService {
   /**
    * 列出目录内容
    */
-  async listDirectory(path: string = '.'): Promise<FileInfo[]> {
+  async listDirectory(path: string = '.', workspacePath?: string): Promise<FileInfo[]> {
     try {
       const response = await fetch('/api/filesystem/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path }),
+        body: JSON.stringify({ path, workspacePath }),
       });
 
       if (!response.ok) {
@@ -57,12 +57,12 @@ export class FileSystemService {
   /**
    * 读取文件内容
    */
-  async readFile(path: string): Promise<ReadFileResult> {
+  async readFile(path: string, workspacePath?: string): Promise<ReadFileResult> {
     try {
       const response = await fetch('/api/filesystem/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path }),
+        body: JSON.stringify({ path, workspacePath }),
       });
 
       if (!response.ok) {
@@ -80,12 +80,12 @@ export class FileSystemService {
   /**
    * 写入文件
    */
-  async writeFile(path: string, content: string): Promise<WriteFileResult> {
+  async writeFile(path: string, content: string, workspacePath?: string): Promise<WriteFileResult> {
     try {
       const response = await fetch('/api/filesystem/write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, content }),
+        body: JSON.stringify({ path, content, workspacePath }),
       });
 
       if (!response.ok) {

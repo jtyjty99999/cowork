@@ -2,14 +2,19 @@
 
 import { ChevronDown, FileText, Folder, Globe, Check } from 'lucide-react';
 import { Artifact, WorkingFile, ProgressStep } from '@/types';
+import FileTree from './FileTree';
+import { useWorkspaceFiles } from '@/hooks/useWorkspaceFiles';
 
 interface RightSidebarProps {
   artifacts: Artifact[];
   workingFiles: WorkingFile[];
   progressSteps: ProgressStep[];
+  workspacePath: string;
 }
 
-export default function RightSidebar({ artifacts, workingFiles, progressSteps }: RightSidebarProps) {
+export default function RightSidebar({ artifacts, workingFiles, progressSteps, workspacePath }: RightSidebarProps) {
+  const { files, loading } = useWorkspaceFiles(workspacePath);
+  
   return (
     <div className="w-[320px] bg-secondary border-l border-border overflow-y-auto h-screen">
       {/* Progress Section */}
@@ -21,44 +26,43 @@ export default function RightSidebar({ artifacts, workingFiles, progressSteps }:
           </button>
         </div>
         
-        <div className="flex items-center mb-3">
-          {progressSteps.length > 0 ? (
-            progressSteps.map((step, index) => (
-              <div key={index} className="flex items-center">
+        {progressSteps.length > 0 ? (
+          <div className="space-y-3">
+            {progressSteps.map((step, index) => (
+              <div key={index} className="flex items-start gap-3">
                 <div
-                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                     step.status === 'completed'
-                      ? 'border-success bg-success text-white'
+                      ? 'border-blue-500 bg-blue-500 text-white'
                       : step.status === 'in_progress'
-                      ? 'border-accent bg-accent text-white'
-                      : 'border-border bg-primary'
+                      ? 'border-blue-500 bg-blue-500 text-white'
+                      : 'border-gray-300 bg-transparent'
                   }`}
                 >
-                  {step.status === 'completed' && <Check size={14} />}
+                  {step.status === 'completed' && <Check size={12} />}
+                  {step.status === 'in_progress' && (
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  )}
                 </div>
-                {index < progressSteps.length - 1 && (
-                  <div className="flex-1 h-0.5 bg-border mx-1" />
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm ${
+                    step.status === 'completed' 
+                      ? 'text-gray-400 line-through' 
+                      : step.status === 'in_progress'
+                      ? 'text-text-primary font-medium'
+                      : 'text-text-secondary'
+                  }`}>
+                    {step.label}
+                  </div>
+                </div>
               </div>
-            ))
-          ) : (
-            <>
-              <div className="w-8 h-8 rounded-full border-2 border-success bg-success text-white flex items-center justify-center">
-                <Check size={14} />
-              </div>
-              <div className="flex-1 h-0.5 bg-border" />
-              <div className="w-8 h-8 rounded-full border-2 border-success bg-success text-white flex items-center justify-center">
-                <Check size={14} />
-              </div>
-              <div className="flex-1 h-0.5 bg-border" />
-              <div className="w-8 h-8 rounded-full border-2 border-border bg-primary" />
-            </>
-          )}
-        </div>
-        
-        <div className="text-[13px] text-text-secondary">
-          Steps will show as the task unfolds.
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-[13px] text-text-secondary">
+            Steps will show as the task unfolds.
+          </div>
+        )}
       </div>
 
       {/* Artifacts Section */}
@@ -119,18 +123,14 @@ export default function RightSidebar({ artifacts, workingFiles, progressSteps }:
 
         {/* Working Files */}
         <div>
-          <div className="text-[13px] font-medium text-text-secondary mb-2">Working files</div>
-          <div className="space-y-2">
-            {workingFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center gap-2 p-2 rounded-md hover:bg-tertiary cursor-pointer transition-colors"
-              >
-                <FileText size={16} className="text-text-secondary flex-shrink-0" />
-                <span className="text-[13px] text-text-primary truncate">{file.filename}</span>
-              </div>
-            ))}
+          <div className="text-[13px] font-medium text-text-secondary mb-2">
+            Workspace Files {files.length > 0 && `(${files.length})`}
           </div>
+          {loading ? (
+            <div className="text-[13px] text-text-secondary py-2">Loading...</div>
+          ) : (
+            <FileTree files={files} />
+          )}
         </div>
       </div>
     </div>

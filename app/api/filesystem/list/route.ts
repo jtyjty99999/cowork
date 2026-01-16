@@ -16,12 +16,22 @@ function validatePath(requestedPath: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { path: requestedPath = '.' } = await req.json();
+    const { path: requestedPath = '.', workspacePath } = await req.json();
     
-    const fullPath = validatePath(requestedPath);
+    // 使用请求中的工作区路径，如果没有则使用默认值
+    const workspaceRoot = workspacePath 
+      ? path.join(process.cwd(), workspacePath)
+      : WORKSPACE_ROOT;
+    
+    const resolvedPath = path.resolve(workspaceRoot, requestedPath);
+    if (!resolvedPath.startsWith(workspaceRoot)) {
+      throw new Error('访问被拒绝：路径超出工作区范围');
+    }
 
     // 确保工作区目录存在
-    await fs.mkdir(WORKSPACE_ROOT, { recursive: true });
+    await fs.mkdir(workspaceRoot, { recursive: true });
+    
+    const fullPath = resolvedPath;
 
     const entries = await fs.readdir(fullPath, { withFileTypes: true });
     
@@ -32,7 +42,7 @@ export async function POST(req: NextRequest) {
         
         return {
           name: entry.name,
-          path: path.relative(WORKSPACE_ROOT, entryPath),
+          path: path.relative(workspaceRoot, entryPath),
           type: entry.isDirectory() ? 'directory' : 'file',
           size: entry.isFile() ? stats.size : undefined,
           modified: stats.mtime,

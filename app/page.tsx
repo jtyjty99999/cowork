@@ -5,6 +5,7 @@ import { useCowork } from '@/hooks/useCowork';
 import LeftSidebar from '@/components/LeftSidebar';
 import ChatArea from '@/components/ChatArea';
 import RightSidebar from '@/components/RightSidebar';
+import { getDefaultTemplate } from '@/lib/task-templates';
 
 export default function Home() {
   const {
@@ -15,12 +16,17 @@ export default function Home() {
     addMessage,
     simulateAIResponse,
     getRealAIResponse,
+    changeWorkspace,
+    workspacePath,
   } = useCowork();
 
   // 是否使用真实 AI（可以通过环境变量控制）
   const useRealAI = process.env.NEXT_PUBLIC_USE_REAL_AI === 'true';
+  
+  // 是否加载示例任务（可以通过环境变量控制）
+  const loadDemoTask = process.env.NEXT_PUBLIC_LOAD_DEMO_TASK === 'true';
 
-  // Load sample task on mount
+  // 初始化任务
   const initialized = useRef(false);
   
   useEffect(() => {
@@ -28,42 +34,24 @@ export default function Home() {
     if (initialized.current) return;
     initialized.current = true;
     
-    const taskId = createNewTask();
-    updateTaskTitle(taskId, 'Review unpublished drafts for publication');
-    
-    // Add sample messages
-    setTimeout(() => {
-      addMessage({
-        role: 'user',
-        content: "Look at my drafts that were started within the last three months and then check that I didn't publish them on simonwillison.net using a search against content on that site and then suggest the ones that are most close to being ready",
-      }, taskId);
-
-      setTimeout(() => {
-        addMessage({
-          role: 'assistant',
-          content: "I'll help you find drafts from the last three months and check if they've been published. Let me start by looking at your drafts folder.",
-        }, taskId);
-
-        setTimeout(() => {
-          addMessage({
-            role: 'assistant',
-            content: '',
-            command: {
-              command: 'find',
-              args: '/sessions/zealous-bold-ramanujan/mnt/blog-drafts -type f \\( -name "*.md" -o -name "*.txt" \\) -mtime -90 -exec ls -la {} \\;',
-              description: 'Find draft files modified in the last 90 days',
-            },
-          }, taskId);
-
+    // 根据配置决定是否加载示例任务
+    if (loadDemoTask) {
+      const template = getDefaultTemplate();
+      if (template) {
+        const taskId = createNewTask();
+        updateTaskTitle(taskId, template.title);
+        
+        // 逐步添加模板消息
+        template.messages.forEach((msg, index) => {
           setTimeout(() => {
-            addMessage({
-              role: 'assistant',
-              content: "Found 46 draft files. Now let me read the content of each to get their titles/topics, then check if they've been published on your site.",
-            }, taskId);
-          }, 1500);
-        }, 1000);
-      }, 500);
-    }, 100);
+            addMessage(msg, taskId);
+          }, index * 600);
+        });
+      }
+    } else {
+      // 创建一个空白任务
+      createNewTask();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -96,6 +84,8 @@ export default function Home() {
         tasks={state.tasks}
         onNewTask={createNewTask}
         onSelectTask={selectTask}
+        workspacePath={state.workspacePath}
+        onWorkspaceChange={changeWorkspace}
       />
       
       <ChatArea
@@ -103,12 +93,14 @@ export default function Home() {
         messages={currentMessages}
         onTitleChange={handleTitleChange}
         onSendMessage={handleSendMessage}
+        isAIResponding={state.isAIResponding}
       />
       
       <RightSidebar
         artifacts={currentArtifacts}
         workingFiles={currentWorkingFiles}
         progressSteps={currentProgressSteps}
+        workspacePath={workspacePath}
       />
     </div>
   );

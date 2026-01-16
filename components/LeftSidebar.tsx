@@ -2,14 +2,17 @@
 
 import { Plus, Info } from 'lucide-react';
 import { Task } from '@/types';
+import WorkspaceSelector from './WorkspaceSelector';
 
 interface LeftSidebarProps {
   tasks: Task[];
   onNewTask: () => void;
   onSelectTask: (taskId: string) => void;
+  workspacePath: string;
+  onWorkspaceChange: (path: string) => void;
 }
 
-export default function LeftSidebar({ tasks, onNewTask, onSelectTask }: LeftSidebarProps) {
+export default function LeftSidebar({ tasks, onNewTask, onSelectTask, workspacePath, onWorkspaceChange }: LeftSidebarProps) {
   return (
     <div className="w-[280px] bg-secondary border-r border-border flex flex-col h-screen">
       {/* Header */}
@@ -28,7 +31,7 @@ export default function LeftSidebar({ tasks, onNewTask, onSelectTask }: LeftSide
       </div>
 
       {/* New Task Button */}
-      <div className="p-4">
+      <div className="p-4 pb-2">
         <button
           onClick={onNewTask}
           className="w-full px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg flex items-center gap-2 transition-colors"
@@ -36,6 +39,14 @@ export default function LeftSidebar({ tasks, onNewTask, onSelectTask }: LeftSide
           <Plus size={18} />
           <span>New task</span>
         </button>
+      </div>
+
+      {/* Workspace Selector */}
+      <div className="px-4 pb-4">
+        <WorkspaceSelector 
+          currentPath={workspacePath}
+          onWorkspaceChange={onWorkspaceChange}
+        />
       </div>
 
       {/* Task List */}

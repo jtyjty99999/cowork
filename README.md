@@ -3,7 +3,9 @@
 A modern web-based implementation of Claude Cowork's core features, built with Next.js, TypeScript, and Tailwind CSS. Inspired by Anthropic's agentic task management interface.
 
 > 🤖 **想对接真实 AI 大模型？**  
-> 查看 [快速配置指南 (3分钟)](./QUICK_AI_SETUP.md) 或 [详细文档索引](./INDEX.md)
+> 查看 [快速配置指南 (3分钟)](./docs/QUICK_AI_SETUP.md) 或 [详细文档索引](./docs/INDEX.md)
+> 
+> 📚 **在线文档预览**: 访问 [http://localhost:3000/docs](http://localhost:3000/docs) 查看所有文档
 
 ## Features
 
@@ -117,7 +119,7 @@ By default, the app uses simulated AI responses. To connect to real AI models:
    npm run dev
    ```
 
-📚 **Detailed guide**: See [AI_SETUP.md](./AI_SETUP.md) for complete configuration instructions.
+📚 **Detailed guide**: See [AI_SETUP.md](./docs/AI_SETUP.md) for complete configuration instructions.
 
 ### Usage
 

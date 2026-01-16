@@ -9,14 +9,41 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
-  command?: Command;
+  timestamp?: number;
+  toolCalls?: {
+    tool: string;
+    parameters: Record<string, any>;
+    result?: {
+      success: boolean;
+      data?: any;
+      error?: string;
+    };
+  }[];
+  command?: {
+    type: string;
+    description?: string;
+  };
+  taskPlan?: {
+    id: string;
+    description: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  }[];
 }
 
 export interface Command {
   command: string;
   args?: string;
   description?: string;
+}
+
+export interface ToolCall {
+  tool: string;
+  parameters: Record<string, any>;
+  result?: {
+    success: boolean;
+    data?: any;
+    error?: string;
+  };
 }
 
 export interface Artifact {
@@ -43,4 +70,6 @@ export interface AppState {
   artifacts: Record<string, Artifact[]>;
   workingFiles: Record<string, WorkingFile[]>;
   progressSteps: Record<string, ProgressStep[]>;
+  isAIResponding: boolean;
+  workspacePath: string;
 }
