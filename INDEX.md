@@ -15,6 +15,10 @@
 ### 测试和调试
 - **测试指南** → [TEST_GUIDE.md](./TEST_GUIDE.md)
 - **问题修复** → [FIXES.md](./FIXES.md)
+- **CORS 修复** → [CORS_FIX.md](./CORS_FIX.md)
+
+### 高级功能
+- **文件系统与沙箱** → [FILESYSTEM_SANDBOX_GUIDE.md](./FILESYSTEM_SANDBOX_GUIDE.md) ⭐ 新功能
 
 ### 项目信息
 - **更新日志** → [CHANGELOG.md](./CHANGELOG.md)

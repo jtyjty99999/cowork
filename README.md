@@ -15,12 +15,14 @@ A modern web-based implementation of Claude Cowork's core features, built with N
 - **Artifacts**: Display generated files and documents
 - **Context Panel**: 
   - Selected folders view
-  - Web search connector
+  - Connectors display
   - Working files list
+- **File System Access**: Secure file read/write operations within workspace
+- **Sandbox Execution**: Safe command execution with security restrictions
 - **Command Execution**: Display running commands with expandable details
 - **Multi-model Support**: Switch between different AI models (Opus 4.5, Sonnet 4, Haiku 4)
 
-### 🎨 UI/UX Features
+### UI/UX Features
 
 - Modern, clean interface matching Claude's design language
 - Responsive layout with three-panel design

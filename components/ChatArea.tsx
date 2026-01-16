@@ -33,6 +33,11 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 忽略中文输入法的确认事件
+    if (e.nativeEvent.isComposing) {
+      return;
+    }
+    
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();

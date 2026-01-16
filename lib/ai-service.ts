@@ -36,30 +36,25 @@ export class AIService {
 
   /**
    * 发送聊天请求
+   * 使用 Next.js API 路由避免 CORS 问题
    */
   async chat(messages: AIMessage[]): Promise<AIResponse> {
-    if (!this.apiKey) {
-      throw new Error('API Key 未配置，请在 .env.local 中设置 NEXT_PUBLIC_OPENAI_API_KEY');
-    }
-
     try {
-      const response = await fetch(`${this.baseURL}/chat/completions`, {
+      // 调用本地 API 路由，由服务端转发请求
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          model: this.model,
           messages,
-          temperature: 0.7,
-          max_tokens: 2000,
+          model: this.model,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(`API 请求失败: ${error.error?.message || response.statusText}`);
+        throw new Error(error.error || `API 请求失败: ${response.statusText}`);
       }
 
       const data = await response.json();
