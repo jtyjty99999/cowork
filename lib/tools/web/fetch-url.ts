@@ -74,6 +74,22 @@ export const fetchUrlTool: ToolDefinition = {
       return { success: false, error: webResponse.error || '请求失败' };
     }
     
+    // 验证响应数据格式
+    let actualData = webResponse.data;
+    
+    // 解包嵌套结构
+    while (actualData && typeof actualData === 'object' && actualData.success && actualData.data && actualData.status) {
+      actualData = actualData.data;
+    }
+    
+    // 检查数据是否有效
+    if (!actualData || (typeof actualData === 'object' && Object.keys(actualData).length === 0)) {
+      return { 
+        success: false, 
+        error: '响应数据格式异常：数据为空或格式无效' 
+      };
+    }
+    
     return { 
       success: true, 
       result: webResponse  // 完整的响应对象
