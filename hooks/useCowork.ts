@@ -843,6 +843,27 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                       description: s.description,
                       status: s.status,
                     })));
+                    
+                    // 如果步骤失败，停止执行后续步骤
+                    if (!toolResults[0].success) {
+                      console.error(`❌ 步骤 ${i + 1} 执行失败:`, toolResults[0].error);
+                      
+                      // 添加错误消息
+                      addMessage({
+                        role: 'assistant',
+                        content: `⚠️ 步骤 ${i + 1} 执行失败：${toolResults[0].error || '未知错误'}\n\n任务执行已停止。请检查错误信息并重新尝试。`,
+                      });
+                      
+                      // 更新进度显示失败状态
+                      updateProgress(taskPlan.map((s, idx) => ({
+                        status: idx < i ? 'completed' : idx === i ? 'failed' : 'pending',
+                        label: s.description,
+                      })));
+                      
+                      // 停止执行
+                      setState(prev => ({ ...prev, isAIResponding: false }));
+                      return;
+                    }
 
                     // 如果是文件写入，添加到 Artifacts
                     stepToolCalls.forEach((tc: any, idx: number) => {

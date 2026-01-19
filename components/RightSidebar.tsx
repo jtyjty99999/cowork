@@ -49,12 +49,17 @@ export default function RightSidebar({ artifacts, workingFiles, progressSteps, w
                           ? 'border-blue-500 bg-blue-500 text-white'
                           : step.status === 'in_progress'
                           ? 'border-blue-500 bg-blue-500 text-white'
+                          : step.status === 'failed'
+                          ? 'border-red-500 bg-red-500 text-white'
                           : 'border-gray-300 bg-transparent'
                       }`}
                     >
                       {step.status === 'completed' && <Check size={12} />}
                       {step.status === 'in_progress' && (
                         <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      )}
+                      {step.status === 'failed' && (
+                        <span className="text-xs font-bold">✕</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -63,6 +68,8 @@ export default function RightSidebar({ artifacts, workingFiles, progressSteps, w
                           ? 'text-gray-400 line-through' 
                           : step.status === 'in_progress'
                           ? 'text-text-primary font-medium'
+                          : step.status === 'failed'
+                          ? 'text-red-600 font-medium'
                           : 'text-text-secondary'
                       }`}>
                         {step.label}

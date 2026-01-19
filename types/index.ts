@@ -63,7 +63,7 @@ export interface WorkingFile {
 }
 
 export interface ProgressStep {
-  status: 'completed' | 'in_progress' | 'pending';
+  status: 'completed' | 'in_progress' | 'pending' | 'failed';
   label: string;
 }
 
