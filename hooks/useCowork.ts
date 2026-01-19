@@ -146,14 +146,15 @@ export const useCowork = () => {
     }));
   }, []);
 
-  const addMessage = useCallback((message: Omit<Message, 'id' | 'timestamp'>, taskId?: string) => {
+  const addMessage = useCallback((message: Omit<Message, 'id' | 'timestamp'>, taskId?: string): string => {
+    const messageId = generateId();
     setState(prev => {
       const targetTaskId = taskId || prev.currentTaskId;
       if (!targetTaskId) return prev;
 
       const newMessage: Message = {
         ...message,
-        id: generateId(),
+        id: messageId,
         timestamp: Date.now(),
       };
 
@@ -168,6 +169,7 @@ export const useCowork = () => {
         },
       };
     });
+    return messageId;
   }, []);
 
   const addArtifact = useCallback((filename: string, content?: string, taskId?: string) => {
@@ -190,6 +192,26 @@ export const useCowork = () => {
             ...(prev.artifacts[targetTaskId] || []),
             artifact,
           ],
+        },
+      };
+    });
+  }, []);
+
+  const updateMessageTaskPlan = useCallback((messageId: string, taskPlan: Array<{ id: string; description: string; status: 'pending' | 'in_progress' | 'completed' | 'failed' }>, taskId?: string) => {
+    setState(prev => {
+      const targetTaskId = taskId || prev.currentTaskId;
+      if (!targetTaskId) return prev;
+
+      const messages = prev.messages[targetTaskId] || [];
+      const updatedMessages = messages.map(msg => 
+        msg.id === messageId ? { ...msg, taskPlan } : msg
+      );
+
+      return {
+        ...prev,
+        messages: {
+          ...prev.messages,
+          [targetTaskId]: updatedMessages,
         },
       };
     });
@@ -735,7 +757,7 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
             
             if (taskPlan) {
               // AI 创建了任务计划，显示计划并逐步执行
-              addMessage({
+              const planMessageId = addMessage({
                 role: 'assistant',
                 content: response.content,
                 taskPlan: taskPlan.map(step => ({
@@ -756,10 +778,16 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
               for (let i = 0; i < taskPlan.length; i++) {
                 const step = taskPlan[i];
                 
-                // 更新当前步骤状态为进行中
+                // 更新当前步骤状态为进行中（同时更新进度条和消息中的任务计划）
                 updateProgress(taskPlan.map((s, idx) => ({
                   status: idx < i ? 'completed' : idx === i ? 'in_progress' : 'pending',
                   label: s.description,
+                })));
+                
+                updateMessageTaskPlan(planMessageId, taskPlan.map((s, idx) => ({
+                  id: s.id,
+                  description: s.description,
+                  status: idx < i ? 'completed' : idx === i ? 'in_progress' : 'pending',
                 })));
 
                 if (step.tool) {
@@ -787,6 +815,13 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                     // 保存结果
                     step.result = toolResults[0];
                     step.status = toolResults[0].success ? 'completed' : 'failed';
+                    
+                    // 更新消息中的任务计划状态
+                    updateMessageTaskPlan(planMessageId, taskPlan.map(s => ({
+                      id: s.id,
+                      description: s.description,
+                      status: s.status,
+                    })));
 
                     // 如果是文件写入，添加到 Artifacts
                     stepToolCalls.forEach((tc: any, idx: number) => {
@@ -827,6 +862,13 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                   });
 
                   step.status = 'completed';
+                  
+                  // 更新消息中的任务计划状态
+                  updateMessageTaskPlan(planMessageId, taskPlan.map(s => ({
+                    id: s.id,
+                    description: s.description,
+                    status: s.status,
+                  })));
                 }
               }
 
@@ -834,6 +876,13 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
               updateProgress(taskPlan.map(s => ({
                 status: 'completed' as const,
                 label: s.description,
+              })));
+              
+              // 最终更新消息中的任务计划状态
+              updateMessageTaskPlan(planMessageId, taskPlan.map(s => ({
+                id: s.id,
+                description: s.description,
+                status: 'completed',
               })));
 
               // 重置 AI 响应状态
