@@ -431,15 +431,26 @@ export const useCowork = () => {
     
     console.log(`✅ Extracted ${allCodeBlocks.length} code blocks, ${artifactMap.size} with filenames`);
     
-    // 如果有代码块但没有文件名，存储最后一个大代码块供后续使用
+    // 显示所有提取到的代码块信息
+    if (allCodeBlocks.length > 0) {
+      console.log('📋 All extracted blocks:');
+      allCodeBlocks.forEach((block, idx) => {
+        console.log(`  ${idx + 1}. ${block.language}${block.filename ? ':' + block.filename : ''} - ${block.content.length} chars`);
+      });
+    }
+    
+    // 如果有代码块但没有文件名，存储最大的代码块供后续使用
     if (allCodeBlocks.length > 0 && artifactMap.size === 0) {
       // 找到最大的代码块（通常是主要内容）
       const largestBlock = allCodeBlocks.reduce((prev, current) => 
         current.content.length > prev.content.length ? current : prev
       );
       console.log('💡 Using largest code block as fallback:', largestBlock.language, largestBlock.content.length, 'chars');
+      console.log('💡 First 100 chars:', largestBlock.content.substring(0, 100));
       artifactMap.set('__fallback__', largestBlock.content);
     }
+    
+    console.log('📦 Final artifactMap keys:', Array.from(artifactMap.keys()));
     
     return artifactMap;
   };
