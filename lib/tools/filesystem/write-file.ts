@@ -50,6 +50,14 @@ export const writeFileTool: ToolDefinition = {
     },
   ],
   execute: async (parameters) => {
+    // Validate that content exists (should be injected by artifact system)
+    if (!parameters.content && parameters.content !== '') {
+      return {
+        success: false,
+        error: `No content provided for ${parameters.path}. Content should be injected from artifact or provided directly.`,
+      };
+    }
+    
     const result = await fileSystemService.writeFile(
       parameters.path,
       parameters.content,

@@ -422,8 +422,16 @@ export const useCowork = () => {
    * 处理工具调用中的 artifact_id 引用
    */
   const processArtifactReferences = (toolCalls: any[], artifactMap: Map<string, string>, currentArtifacts: Artifact[]) => {
+    console.log('🔧 Processing artifact references...');
+    console.log('📦 Available artifacts in map:', Array.from(artifactMap.keys()));
+    console.log('🔨 Tool calls to process:', toolCalls.map(tc => ({ tool: tc.tool, path: tc.parameters?.path, hasContent: !!tc.parameters?.content })));
+    
     toolCalls.forEach((toolCall: any) => {
       if (toolCall.tool === 'write_file') {
+        console.log(`\n🔍 Processing write_file for: ${toolCall.parameters.path}`);
+        console.log('   Has content param:', !!toolCall.parameters.content);
+        console.log('   Has artifact_id:', !!toolCall.parameters.artifact_id);
+        
         // 如果有 artifact_id，从 artifacts 中获取内容
         if (toolCall.parameters.artifact_id) {
           const artifact = currentArtifacts.find(a => a.id === toolCall.parameters.artifact_id);
@@ -437,14 +445,21 @@ export const useCowork = () => {
         }
         // 如果没有 content 但有 path，尝试从当前响应的 artifactMap 中获取
         else if (!toolCall.parameters.content && toolCall.parameters.path) {
+          console.log('   Searching in artifactMap for:', toolCall.parameters.path);
           const content = artifactMap.get(toolCall.parameters.path);
           if (content) {
-            console.log('✅ Using code block content for:', toolCall.parameters.path);
+            console.log('✅ Found and injecting content:', content.length, 'characters');
             toolCall.parameters.content = content;
+          } else {
+            console.warn('⚠️ No content found in artifactMap for:', toolCall.parameters.path);
           }
+        } else {
+          console.log('   Already has content or no path');
         }
       }
     });
+    
+    console.log('\n✅ Artifact processing complete\n');
   };
 
   /**
