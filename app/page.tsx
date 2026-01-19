@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useCowork } from '@/hooks/useCowork';
 import LeftSidebar from '@/components/LeftSidebar';
 import ChatArea from '@/components/ChatArea';
@@ -28,6 +28,7 @@ export default function Home() {
 
   // 初始化任务
   const initialized = useRef(false);
+  const lastMessageRef = useRef<{ content: string; timestamp: number } | null>(null);
   
   useEffect(() => {
     // Prevent double initialization in React StrictMode
@@ -55,7 +56,18 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSendMessage = (content: string, images?: { url: string; name: string; size: number; base64?: string }[]) => {
+  const handleSendMessage = useCallback((content: string, images?: { url: string; name: string; size: number; base64?: string }[]) => {
+    // 防止重复发送（500ms内相同内容视为重复）
+    const now = Date.now();
+    if (lastMessageRef.current && 
+        lastMessageRef.current.content === content && 
+        now - lastMessageRef.current.timestamp < 500) {
+      console.warn('⚠️ Duplicate message send prevented');
+      return;
+    }
+    
+    lastMessageRef.current = { content, timestamp: now };
+    
     addMessage({ role: 'user', content, images });
     
     // 根据配置选择使用真实 AI 或模拟 AI
@@ -64,7 +76,7 @@ export default function Home() {
     } else {
       simulateAIResponse(content);
     }
-  };
+  }, [useRealAI, addMessage, getRealAIResponse, simulateAIResponse]);
 
   const handleTitleChange = (title: string) => {
     if (state.currentTaskId) {
