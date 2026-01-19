@@ -400,19 +400,38 @@ export const useCowork = () => {
   const extractAndCreateArtifacts = (responseContent: string): Map<string, string> => {
     const artifactMap = new Map<string, string>();
     
-    // 提取所有代码块
+    console.log('🔍 Extracting code blocks from response...');
+    
+    // 提取所有代码块 - 支持多种格式
     const codeBlockRegex = /```(\w+)(?::([^\n]+))?\n([\s\S]*?)```/g;
     let match;
+    const allCodeBlocks: Array<{ language: string; filename?: string; content: string }> = [];
     
     while ((match = codeBlockRegex.exec(responseContent)) !== null) {
       const [, language, filename, content] = match;
+      allCodeBlocks.push({ language, filename: filename?.trim(), content });
       
       if (filename) {
         // 有文件名的代码块，创建 Artifact
-        console.log('📦 Creating artifact for:', filename);
+        console.log('📦 Creating artifact for:', filename.trim());
         addArtifact(filename.trim(), content);
         artifactMap.set(filename.trim(), content);
+      } else {
+        // 没有文件名，但记录下来供后续匹配
+        console.log('📝 Found code block without filename, language:', language);
       }
+    }
+    
+    console.log(`✅ Extracted ${allCodeBlocks.length} code blocks, ${artifactMap.size} with filenames`);
+    
+    // 如果有代码块但没有文件名，存储最后一个大代码块供后续使用
+    if (allCodeBlocks.length > 0 && artifactMap.size === 0) {
+      // 找到最大的代码块（通常是主要内容）
+      const largestBlock = allCodeBlocks.reduce((prev, current) => 
+        current.content.length > prev.content.length ? current : prev
+      );
+      console.log('💡 Using largest code block as fallback:', largestBlock.language, largestBlock.content.length, 'chars');
+      artifactMap.set('__fallback__', largestBlock.content);
     }
     
     return artifactMap;
@@ -446,12 +465,34 @@ export const useCowork = () => {
         // 如果没有 content 但有 path，尝试从当前响应的 artifactMap 中获取
         else if (!toolCall.parameters.content && toolCall.parameters.path) {
           console.log('   Searching in artifactMap for:', toolCall.parameters.path);
-          const content = artifactMap.get(toolCall.parameters.path);
+          
+          // 尝试精确匹配
+          let content = artifactMap.get(toolCall.parameters.path);
+          
+          // 如果没找到，尝试使用 fallback
+          if (!content && artifactMap.has('__fallback__')) {
+            console.log('   Using fallback code block');
+            content = artifactMap.get('__fallback__');
+          }
+          
+          // 如果还是没找到，尝试匹配文件扩展名
+          if (!content) {
+            const ext = toolCall.parameters.path.split('.').pop();
+            for (const [key, value] of artifactMap.entries()) {
+              if (key.endsWith(`.${ext}`)) {
+                console.log('   Found by extension match:', key);
+                content = value;
+                break;
+              }
+            }
+          }
+          
           if (content) {
             console.log('✅ Found and injecting content:', content.length, 'characters');
             toolCall.parameters.content = content;
           } else {
             console.warn('⚠️ No content found in artifactMap for:', toolCall.parameters.path);
+            console.warn('   Available keys:', Array.from(artifactMap.keys()));
           }
         } else {
           console.log('   Already has content or no path');
