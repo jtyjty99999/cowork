@@ -658,41 +658,30 @@ ${generateToolsDocumentation()}
 
 **FILE CREATION GUIDELINES:**
 
-For SMALL files (< 50 lines), use write_file tool directly:
+**ALWAYS use write_file tool with COMPLETE content in the parameters:**
+
 \`\`\`tool:write_file
 {
-  "path": "hello.txt",
-  "content": "Hello World"
+  "path": "filename.html",
+  "content": "<!DOCTYPE html>\\n<html>\\n...complete file content here...\\n</html>"
 }
 \`\`\`
 
-For LARGE files (> 50 lines, like HTML/CSS/JS games), use code blocks with filename:
+**IMPORTANT RULES:**
+1. ALWAYS include the COMPLETE file content in the "content" parameter
+2. Use \\n for newlines in the content string
+3. Escape special characters: \\" for quotes, \\\\ for backslashes
+4. Do NOT use code blocks as a replacement for the content parameter
+5. Do NOT leave the content parameter empty
+6. The content must be valid JSON - properly escaped
 
-Step 1: Display the file content in a code block with language:filename format:
-\`\`\`html:snake-game.html
-<!DOCTYPE html>
-<html>
-...full content here...
-</html>
-\`\`\`
-
-Step 2: Use write_file WITHOUT content parameter (system will auto-extract from code block):
+**Example for a complete HTML file:**
 \`\`\`tool:write_file
 {
-  "path": "snake-game.html"
+  "path": "game.html",
+  "content": "<!DOCTYPE html>\\n<html>\\n<head>\\n  <title>Game</title>\\n</head>\\n<body>\\n  <h1>Hello</h1>\\n</body>\\n</html>"
 }
 \`\`\`
-
-The system automatically:
-1. Extracts code blocks with filenames (e.g., \`\`\`html:filename.html)
-2. Creates Artifacts for each code block
-3. Injects content when write_file is called with matching path
-
-**IMPORTANT:**
-- Use language:filename format in code blocks for large files
-- Do NOT include "content" parameter for files shown in code blocks
-- Do NOT embed large content in JSON parameters
-- The filename in code block must match the path in write_file
 
 IMPORTANT: 
 - Always use tool calls for file operations
