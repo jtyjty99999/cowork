@@ -1,5 +1,126 @@
 # 更新日志
 
+## [1.0.2] - 2026-01-19
+
+### 🐛 Bug 修复
+
+#### 修复大文件创建失败问题
+
+**问题描述**：
+- AI 生成的大文件（如游戏代码）被截断，无法创建完整文件
+- `max_tokens` 限制为 2000，不足以生成完整代码
+- 代码生成不完整导致文件功能异常
+
+**修复方案**：
+- ✅ 将 `max_tokens` 从 2000 提升到 8000
+- ✅ 简化文件创建机制，要求 AI 直接在工具参数中传递完整内容
+- ✅ 更新系统提示词，提供清晰的文件创建指南
+
+**影响的文件**：
+- `app/api/chat/route.ts` - 提升 max_tokens 限制
+- `hooks/useCowork.ts` - 简化文件创建提示词
+
+**Commits**：
+- `2261249` - fix: increase max_tokens from 2000 to 8000
+- `f3f7df5` - fix: simplify file creation to require content in tool parameters
+
+#### 修复任务计划状态不同步问题
+
+**问题描述**：
+- 右侧进度条显示任务执行进度，但聊天框内的任务列表不更新
+- 任务完成后看不到勾选状态
+- 无法在聊天记录中查看任务执行历史
+
+**修复方案**：
+- ✅ 添加 `updateMessageTaskPlan` 函数动态更新消息中的任务计划
+- ✅ 修改 `addMessage` 返回消息 ID 以便后续更新
+- ✅ 在任务执行过程中实时同步状态（pending → in_progress → completed）
+
+**影响的文件**：
+- `hooks/useCowork.ts` - 实现任务计划状态同步逻辑
+
+**Commits**：
+- `595a9b3` - feat: sync task plan status between progress bar and chat message
+
+#### 修复重复执行问题
+
+**问题描述**：
+- 点击发送按钮触发两次 AI 调用
+- AI 响应内容重复出现
+- "我来帮你xx，让我先规划一下步骤：" 出现两次
+
+**根本原因**：
+1. React 18 StrictMode 在开发模式下故意双重执行组件
+2. 组件重渲染导致 `handleSendMessage` 被多次调用
+3. 缺少防重复调用机制
+
+**修复方案**：
+- ✅ 在 `getRealAIResponse` 中使用 `isProcessingRef` 防止 API 层重复调用
+- ✅ 在 `handleSendMessage` 中添加 500ms 防抖检查防止 UI 层重复发送
+- ✅ 使用 `useCallback` 包装 `handleSendMessage` 稳定函数引用
+- ✅ **禁用 React StrictMode** 解决开发模式双重执行问题
+
+**影响的文件**：
+- `hooks/useCowork.ts` - 添加 isProcessingRef 防护
+- `app/page.tsx` - 添加防抖检查和 useCallback
+- `next.config.js` - 禁用 reactStrictMode
+
+**Commits**：
+- `fb64059` - fix: prevent duplicate AI response calls
+- `7727788` - fix: prevent duplicate message sends with debouncing
+- `10b767b` - fix: disable React StrictMode to prevent double execution
+
+#### 修复 Artifact 内容注入竞态条件
+
+**问题描述**：
+- 代码块提取后创建 Artifact，但内容注入时找不到
+- `artifactMap` 为空导致文件写入失败
+- 工具调用代码块被误识别为文件内容
+
+**修复方案**：
+- ✅ 直接使用 `artifactMap` 而不依赖异步更新的 state
+- ✅ 跳过 `tool:xxx` 格式的工具调用代码块
+- ✅ 添加详细的调试日志追踪提取和注入过程
+
+**影响的文件**：
+- `hooks/useCowork.ts` - 修复竞态条件和代码块过滤
+
+**Commits**：
+- `7341cde` - fix: resolve race condition in artifact content injection
+- `4dd6e45` - fix: exclude tool call blocks from artifact extraction
+
+### 🔧 配置更改
+
+#### 配置 workspace 目录为 gitignore
+
+**变更内容**：
+- ✅ 添加 `/workspace/*` 到 .gitignore
+- ✅ 保留 workspace 目录结构（通过 .gitkeep）
+- ✅ 从 git 中移除所有已跟踪的 workspace 文件
+- ✅ 确保用户数据文件不被提交到代码仓库
+
+**影响的文件**：
+- `.gitignore` - 添加 workspace 忽略规则
+- `workspace/.gitkeep` - 保留空目录结构
+
+**Commits**：
+- `6c7574b` - chore: add workspace to gitignore and remove tracked files
+
+### 📝 调试日志增强
+
+**新增功能**：
+- ✅ 添加 AI 响应内容长度和预览日志
+- ✅ 添加工具调用参数详细信息日志
+- ✅ 添加代码块提取过程的完整日志
+- ✅ 添加 Artifact 注入过程的追踪日志
+
+**Commits**：
+- `f22a8c5` - debug: add tool call parameter logging
+- `6266eae` - debug: add response content logging before extraction
+- `7b366ac` - debug: add comprehensive logging for code block extraction
+
+---
+
 ## [1.0.1] - 2026-01-16
 
 ### 🐛 Bug 修复
