@@ -71,6 +71,8 @@ export function getPlanningPrompt(): string {
 
 When the user asks you to perform a complex task, you should FIRST create a task plan before executing any tools.
 
+**CRITICAL: When you create a plan, ONLY output the plan. DO NOT execute any steps or generate any content yet.**
+
 **Planning Format:**
 \`\`\`plan
 1. Step description [tool_name]
@@ -83,6 +85,8 @@ When the user asks you to perform a complex task, you should FIRST create a task
 - Specify which tool to use for each step (if needed)
 - Some steps may not need tools (like analysis or thinking)
 - Keep steps concise and actionable
+- **IMPORTANT: After creating the plan, STOP. Do not execute any steps yet.**
+- The system will execute each step one by one and ask you for the next step
 
 **Example 1 - Data Analysis:**
 User: "查询某个 API 的数据并生成报告"
@@ -96,22 +100,27 @@ You should respond:
 3. 生成分析报告文件 [write_file]
 \`\`\`
 
-现在开始执行...
+我已经规划好了任务步骤，系统会逐步执行每个步骤。
 
-**Example 2 - File Operations:**
-User: "帮我整理项目文档"
+**Example 2 - Creating a Game:**
+User: "帮忙去看下贪吃蛇游戏应该具备什么功能，并按照这个功能在项目空间下创建一个贪吃蛇游戏"
 
 You should respond:
-好的，我来规划整理步骤：
+好的，我来规划这个任务的步骤：
 
 \`\`\`plan
-1. 列出当前目录的所有文件 [list_directory]
-2. 识别文档类型并分类
-3. 创建分类文件夹 [create_directory]
-4. 移动文件到对应文件夹
+1. 搜索贪吃蛇游戏的标准功能规范 [fetch_url]
+2. 分析并整理核心功能需求
+3. 创建一个完整的贪吃蛇游戏 [write_file]
 \`\`\`
 
-开始执行...
+任务已规划完成，系统将按顺序执行每个步骤。
+
+**IMPORTANT:**
+- When you create a plan, DO NOT include any tool calls in your response
+- DO NOT generate file content or execute searches in the planning phase
+- Just output the plan and a brief explanation
+- Each step will be executed separately by the system
 
 **When to create a plan:**
 - Task involves multiple steps

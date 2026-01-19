@@ -793,10 +793,31 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                 if (step.tool) {
                   // 步骤需要调用工具
                   // 让 AI 为这个步骤生成工具调用
+                  
+                  // 构建上下文：包含之前步骤的结果
+                  let previousResults = '';
+                  if (i > 0) {
+                    previousResults = '\n\n**之前步骤的执行结果：**\n';
+                    for (let j = 0; j < i; j++) {
+                      const prevStep = taskPlan[j];
+                      previousResults += `\n步骤 ${j + 1}: ${prevStep.description}\n`;
+                      if (prevStep.result) {
+                        previousResults += `结果: ${JSON.stringify(prevStep.result).substring(0, 500)}...\n`;
+                      }
+                    }
+                  }
+                  
                   const stepMessages: AIMessage[] = [
                     ...aiMessages,
                     { role: 'assistant', content: response.content },
-                    { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}。请使用 ${step.tool} 工具完成这个步骤。` },
+                    { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}
+
+**重要提示：**
+- 只执行当前这一个步骤，不要执行后续步骤
+- 使用 ${step.tool} 工具完成这个步骤
+- 基于之前步骤的结果来执行当前步骤${previousResults}
+
+请调用 ${step.tool} 工具来完成当前步骤。` },
                   ];
 
                   const stepResponse = await aiService.chat(stepMessages);
@@ -848,10 +869,31 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                   }
                 } else {
                   // 步骤不需要工具，让 AI 思考或分析
+                  
+                  // 构建上下文：包含之前步骤的结果
+                  let previousResults = '';
+                  if (i > 0) {
+                    previousResults = '\n\n**之前步骤的执行结果：**\n';
+                    for (let j = 0; j < i; j++) {
+                      const prevStep = taskPlan[j];
+                      previousResults += `\n步骤 ${j + 1}: ${prevStep.description}\n`;
+                      if (prevStep.result) {
+                        previousResults += `结果: ${JSON.stringify(prevStep.result).substring(0, 500)}...\n`;
+                      }
+                    }
+                  }
+                  
                   const stepMessages: AIMessage[] = [
                     ...aiMessages,
                     { role: 'assistant', content: response.content },
-                    { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}` },
+                    { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}
+
+**重要提示：**
+- 只执行当前这一个步骤，不要执行后续步骤
+- 这个步骤不需要工具，请进行分析或思考
+- 基于之前步骤的结果来完成当前步骤${previousResults}
+
+请完成当前步骤的分析或思考。` },
                   ];
 
                   const stepResponse = await aiService.chat(stepMessages);
