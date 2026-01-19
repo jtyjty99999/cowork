@@ -17,15 +17,18 @@ interface ChatAreaProps {
   taskTitle: string;
   messages: Message[];
   onTitleChange: (title: string) => void;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, images?: { url: string; name: string; size: number; base64?: string }[]) => void;
   isAIResponding?: boolean;
 }
 
 export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMessage, isAIResponding = false }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [model, setModel] = useState('opus-4.5');
+  const [uploadedImages, setUploadedImages] = useState<{ url: string; name: string; size: number; base64?: string }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -34,9 +37,20 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
   }, [messages]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
-    onSendMessage(input);
+    if (!input.trim() && uploadedImages.length === 0) return;
+    
+    // 构建消息内容
+    let messageContent = input;
+    if (uploadedImages.length > 0) {
+      const imageContext = uploadedImages.map(img =>
+        `[图片: ${img.name}](${img.url})`
+      ).join('\n');
+      messageContent = uploadedImages.length > 0 && input ? `${input}\n\n${imageContext}` : imageContext;
+    }
+    
+    onSendMessage(messageContent, uploadedImages);
     setInput('');
+    setUploadedImages([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -58,6 +72,53 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
     setInput(e.target.value);
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newImages: { url: string; name: string; size: number; base64?: string }[] = [];
+
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload/image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          newImages.push({
+            url: data.url,
+            name: data.name,
+            size: data.size,
+            base64: data.base64,
+          });
+        } else {
+          const error = await response.json();
+          alert(`上传失败: ${error.error}`);
+        }
+      }
+
+      setUploadedImages(prev => [...prev, ...newImages]);
+    } catch (error) {
+      console.error('图片上传失败:', error);
+      alert('图片上传失败，请重试');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -95,6 +156,22 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
                 <div className="text-[15px] leading-relaxed text-text-primary whitespace-pre-wrap">
                   {msg.content}
                 </div>
+                {msg.images && msg.images.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {msg.images.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img 
+                          src={img.url} 
+                          alt={img.name}
+                          className="w-full h-auto rounded-lg border border-border"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          {img.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="max-w-3xl">
@@ -269,9 +346,47 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
 
       {/* Input Area */}
       <div className="p-4 border-t border-border">
+        {/* 图片预览区域 */}
+        {uploadedImages.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {uploadedImages.map((img, idx) => (
+              <div key={idx} className="relative group">
+                <img 
+                  src={img.url} 
+                  alt={img.name}
+                  className="h-20 w-20 object-cover rounded-lg border border-border"
+                />
+                <button
+                  onClick={() => removeImage(idx)}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        
         <div className="flex items-end gap-3 p-3 border border-border rounded-xl bg-primary">
-          <button className="w-8 h-8 flex items-center justify-center hover:bg-tertiary rounded-md transition-colors flex-shrink-0">
-            <Plus size={20} className="text-text-secondary" />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="w-8 h-8 flex items-center justify-center hover:bg-tertiary rounded-md transition-colors flex-shrink-0 disabled:opacity-50"
+            title="上传图片"
+          >
+            {isUploading ? (
+              <div className="w-4 h-4 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Plus size={20} className="text-text-secondary" />
+            )}
           </button>
           
           <textarea

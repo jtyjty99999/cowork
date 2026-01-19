@@ -5,7 +5,7 @@
 
 export * from './types';
 export * from './registry';
-export { parseToolCalls } from './parser';
+export * from './parser';
 
 // 导出所有工具定义
 export * as filesystemTools from './filesystem';

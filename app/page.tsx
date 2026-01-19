@@ -55,12 +55,12 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSendMessage = (content: string) => {
-    addMessage({ role: 'user', content });
+  const handleSendMessage = (content: string, images?: { url: string; name: string; size: number; base64?: string }[]) => {
+    addMessage({ role: 'user', content, images });
     
     // 根据配置选择使用真实 AI 或模拟 AI
     if (useRealAI) {
-      getRealAIResponse(content);
+      getRealAIResponse(content, images);
     } else {
       simulateAIResponse(content);
     }
@@ -89,6 +89,7 @@ export default function Home() {
       />
       
       <ChatArea
+        key={state.currentTaskId || 'no-task'}
         taskTitle={currentTask?.title || ''}
         messages={currentMessages}
         onTitleChange={handleTitleChange}

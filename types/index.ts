@@ -10,6 +10,12 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp?: number;
+  images?: {
+    url: string;
+    name: string;
+    size: number;
+    base64?: string;
+  }[];
   toolCalls?: {
     tool: string;
     parameters: Record<string, any>;
@@ -19,10 +25,7 @@ export interface Message {
       error?: string;
     };
   }[];
-  command?: {
-    type: string;
-    description?: string;
-  };
+  command?: Command;
   taskPlan?: {
     id: string;
     description: string;

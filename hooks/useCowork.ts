@@ -3,11 +3,94 @@
 import { useState, useCallback } from 'react';
 import { AppState, Task, Message, Artifact, WorkingFile, ProgressStep } from '@/types';
 import { aiService, AIMessage } from '@/lib/ai-service';
-import { parseToolCalls, executeToolCalls, generateToolsDocumentation } from '@/lib/tools';
+import { parseToolCalls } from '@/lib/tools/parser';
+import { executeToolCalls, generateToolsDocumentation } from '@/lib/tools/registry';
 import { setWorkspacePath } from '@/lib/workspace-context';
 import { parsePlan, getPlanningPrompt } from '@/lib/task-planner';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+/**
+ * 从用户消息中生成简短的任务标题
+ * 提取核心需求，而非简单截取文本
+ */
+const generateTaskTitle = (userMessage: string): string => {
+  const cleaned = userMessage.trim();
+  
+  // 如果消息很短，直接返回
+  if (cleaned.length <= 25) {
+    return cleaned;
+  }
+  
+  // 定义动作词和对象提取模式
+  const actionPatterns = [
+    // 动词 + 对象
+    { regex: /(查询|分析|生成|创建|制作|编写|写|做)(.{1,20}?)(?:[，。！？\n]|$)/, format: (m: RegExpMatchArray) => `${m[1]}${m[2]}` },
+    // 帮我/请 + 动词 + 对象
+    { regex: /(?:帮我|请|麻烦|能否|可以)(查询|分析|生成|创建|制作|编写|写|做|整理|搜索|找|获取)(.{1,20}?)(?:[，。！？\n]|$)/, format: (m: RegExpMatchArray) => `${m[1]}${m[2]}` },
+    // 我想/我要 + 动词 + 对象
+    { regex: /(?:我想|我要|想要|需要)(查询|分析|生成|创建|制作|编写|写|做|整理|搜索|找|获取|了解|知道)(.{1,20}?)(?:[，。！？\n]|$)/, format: (m: RegExpMatchArray) => `${m[1]}${m[2]}` },
+    // 直接对象描述
+    { regex: /^(.{1,25}?)(?:怎么|如何|的|吗|呢)/, format: (m: RegExpMatchArray) => m[1] },
+  ];
+  
+  // 尝试匹配模式
+  for (const pattern of actionPatterns) {
+    const match = cleaned.match(pattern.regex);
+    if (match) {
+      let title = pattern.format(match);
+      
+      // 清理常见的无用词
+      title = title
+        .replace(/^(?:帮我|请|麻烦|能否|可以|我想|我要|想要|需要)/, '')
+        .replace(/[，、；。！？\s]+$/, '')
+        .trim();
+      
+      // 限制长度
+      if (title.length > 30) {
+        // 尝试在合适的位置截断
+        const cutPoints = [
+          title.indexOf('，'),
+          title.indexOf('、'),
+          title.indexOf('并'),
+          title.indexOf('和'),
+        ].filter(i => i > 10 && i < 30);
+        
+        if (cutPoints.length > 0) {
+          title = title.substring(0, Math.min(...cutPoints));
+        } else {
+          title = title.substring(0, 28) + '...';
+        }
+      }
+      
+      if (title.length >= 3) {
+        return title;
+      }
+    }
+  }
+  
+  // 如果没有匹配到模式，智能提取前面部分
+  // 在第一个句子结束处截断
+  const firstSentence = cleaned.split(/[。！？\n]/)[0];
+  if (firstSentence.length <= 30) {
+    return firstSentence;
+  }
+  
+  // 在合适的位置截断
+  const cutPoints = [
+    firstSentence.indexOf('，'),
+    firstSentence.indexOf('、'),
+    firstSentence.indexOf('并'),
+    firstSentence.indexOf('和'),
+  ].filter(i => i > 8 && i < 30);
+  
+  if (cutPoints.length > 0) {
+    return firstSentence.substring(0, Math.min(...cutPoints));
+  }
+  
+  // 最后兜底：取前25个字符
+  return firstSentence.substring(0, 25) + '...';
+};
 
 const initialState: AppState = {
   tasks: [],
@@ -70,7 +153,7 @@ export const useCowork = () => {
       const newMessage: Message = {
         ...message,
         id: generateId(),
-        timestamp: new Date(),
+        timestamp: Date.now(),
       };
 
       return {
@@ -276,7 +359,7 @@ export const useCowork = () => {
    * 真实的 AI 响应函数
    * 调用实际的 AI API
    */
-  const getRealAIResponse = useCallback(async (userMessage: string) => {
+  const getRealAIResponse = useCallback(async (userMessage: string, images?: { url: string; name: string; size: number; base64?: string }[]) => {
     try {
       // 设置 AI 正在响应状态
       setState(prev => ({ ...prev, isAIResponding: true }));
@@ -318,12 +401,81 @@ export const useCowork = () => {
       // 获取当前对话历史
       setState(prev => {
         const currentMessages = prev.currentTaskId ? prev.messages[prev.currentTaskId] || [] : [];
+
+        const formatMessageContentWithImages = (msg: Message): AIMessage['content'] => {
+          if (!msg.images || msg.images.length === 0) return msg.content;
+          
+          // 如果有图片且有 base64 数据，使用多模态格式
+          const hasBase64 = msg.images.some(img => img.base64);
+          if (hasBase64) {
+            const contentParts: Array<{ type: 'text' | 'image_url'; text?: string; image_url?: { url: string } }> = [];
+            
+            // 添加文本内容
+            if (msg.content) {
+              contentParts.push({ type: 'text', text: msg.content });
+            }
+            
+            // 添加图片
+            msg.images.forEach(img => {
+              if (img.base64) {
+                contentParts.push({
+                  type: 'image_url',
+                  image_url: { url: img.base64 }
+                });
+              }
+            });
+            
+            return contentParts;
+          }
+          
+          // 降级：如果没有 base64，只返回文本描述
+          const imageLines = msg.images
+            .map(img => `- ${img.name} (${img.url}, ${(img.size / 1024).toFixed(1)}KB)`)
+            .join('\n');
+          return `${msg.content}\n\n[Uploaded images]\n${imageLines}`;
+        };
         
-        // 转换为 AI 服务需要的格式，并添加系统提示
+        // 获取当前日期信息
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const currentDay = now.getDate();
+        
+        // 构建当前用户消息（可能包含图片）
+        let currentUserMessage: AIMessage['content'] = userMessage;
+        if (images && images.length > 0 && images.some(img => img.base64)) {
+          const contentParts: Array<{ type: 'text' | 'image_url'; text?: string; image_url?: { url: string } }> = [];
+          
+          if (userMessage) {
+            contentParts.push({ type: 'text', text: userMessage });
+          }
+          
+          images.forEach(img => {
+            if (img.base64) {
+              contentParts.push({
+                type: 'image_url',
+                image_url: { url: img.base64 }
+              });
+            }
+          });
+          
+          currentUserMessage = contentParts;
+        }
+        
+        const currentUploadInfo = images && images.length > 0
+          ? `\n\n**User uploaded ${images.length} image(s) for this request. The images are included in the message content for your analysis.**`
+          : '';
+
         const aiMessages: AIMessage[] = [
           {
             role: 'system',
             content: `You are a helpful AI assistant with access to a workspace filesystem, command execution, and internet access capabilities.
+
+**CURRENT DATE AND TIME:**
+- Today's date: ${currentDate} (${currentYear}年${currentMonth}月${currentDay}日)
+- When user asks for "recent", "last week", "this month" etc., calculate dates based on TODAY (${currentDate})
+- For time-sensitive queries, use proper date formats based on today's date
 
 ${getPlanningPrompt()}
 
@@ -371,18 +523,38 @@ IMPORTANT:
 - For API responses, explain what the data means
 - Don't just show raw JSON, interpret it for the user
 
-Current workspace status:${workspaceContext}`,
+**When user uploads images**:
+- Images will be indicated in the message with [图片: filename]
+- You can reference and analyze the images in your response
+- Describe what you see in the images if relevant to the task
+- Use image context to better understand user requests
+
+Current workspace status:${workspaceContext}${currentUploadInfo}`,
           },
           ...currentMessages.map(msg => ({
             role: msg.role,
-            content: msg.content,
+            content: formatMessageContentWithImages(msg),
           })),
+          {
+            role: 'user' as const,
+            content: currentUserMessage,
+          },
         ];
 
         // 调用 AI 服务（异步）
         (async () => {
           try {
             const response = await aiService.chat(aiMessages);
+            
+            // 检查是否需要自动生成任务标题
+            // 如果当前任务标题还是 "New task"，且这是第一次 AI 响应，则自动生成标题
+            const currentTask = prev.tasks.find(t => t.id === prev.currentTaskId);
+            const isFirstResponse = currentMessages.length === 1; // 只有用户的第一条消息
+            
+            if (currentTask && currentTask.title === 'New task' && isFirstResponse) {
+              const newTitle = generateTaskTitle(userMessage);
+              updateTaskTitle(currentTask.id, newTitle);
+            }
             
             // 首先检查是否有任务计划
             const taskPlan = parsePlan(response.content);

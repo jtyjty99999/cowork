@@ -24,8 +24,8 @@ export interface TaskPlan {
  * 
  * 格式示例：
  * ```plan
- * 1. 查询英伟达股票数据 [fetch_url]
- * 2. 分析股票走势数据
+ * 1. 获取数据 [fetch_url]
+ * 2. 分析数据内容
  * 3. 生成分析报告 [write_file]
  * ```
  */
@@ -84,15 +84,15 @@ When the user asks you to perform a complex task, you should FIRST create a task
 - Some steps may not need tools (like analysis or thinking)
 - Keep steps concise and actionable
 
-**Example 1 - Stock Query:**
-User: "查询英伟达最近一周的股价并生成报告"
+**Example 1 - Data Analysis:**
+User: "查询某个 API 的数据并生成报告"
 
 You should respond:
 我来帮你完成这个任务，让我先规划一下步骤：
 
 \`\`\`plan
-1. 查询英伟达股票数据 [fetch_url]
-2. 分析股票走势和关键指标
+1. 获取 API 数据 [fetch_url]
+2. 分析数据内容和关键信息
 3. 生成分析报告文件 [write_file]
 \`\`\`
 

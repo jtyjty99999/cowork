@@ -15,12 +15,12 @@ export interface QuickTask {
 export const quickTasks: QuickTask[] = [
   // 数据分析类
   {
-    id: 'stock-analysis',
-    title: '股票数据分析',
-    description: '查询股票数据并生成分析报告',
+    id: 'api-data-analysis',
+    title: 'API 数据分析',
+    description: '查询 API 数据并生成分析报告',
     icon: '📈',
     category: 'data',
-    prompt: '请帮我查询英伟达（NVDA）最近一周的股票数据，分析走势，并生成一份详细的分析报告保存为 stock_analysis.md 文件',
+    prompt: '请帮我查询 https://api.github.com/repos/microsoft/vscode 的仓库数据，分析关键信息，并生成一份详细的分析报告保存为 api_analysis.md 文件',
   },
   {
     id: 'web-scraping',
