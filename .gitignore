@@ -36,3 +36,7 @@ next-env.d.ts
 index.html
 styles.css
 script.js
+
+# workspace - user data files
+/workspace/*
+!/workspace/.gitkeep

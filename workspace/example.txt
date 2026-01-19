@@ -1,2 +1,0 @@
-This is an example file in the workspace.
-You can read, modify, or delete this file.
