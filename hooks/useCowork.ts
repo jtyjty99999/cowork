@@ -853,6 +853,8 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
               ]);
 
               // 提取代码块并创建 Artifacts
+              console.log('📄 Response content length:', response.content.length);
+              console.log('📄 Response preview:', response.content.substring(0, 500));
               const artifactMap = extractAndCreateArtifacts(response.content);
               
               // 处理 artifact 引用（直接使用 artifactMap，不依赖 state）
