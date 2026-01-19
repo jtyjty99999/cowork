@@ -8,7 +8,7 @@ import { ToolDefinition } from '../types';
 
 export const writeFileTool: ToolDefinition = {
   name: 'write_file',
-  description: 'Write content to a file (creates or overwrites)',
+  description: 'Write content to a file (creates or overwrites). For large files, use artifact_id to reference content.',
   parameters: [
     {
       name: 'path',
@@ -19,8 +19,14 @@ export const writeFileTool: ToolDefinition = {
     {
       name: 'content',
       type: 'string',
-      description: 'Content to write to the file',
-      required: true,
+      description: 'Content to write to the file (optional if artifact_id is provided)',
+      required: false,
+    },
+    {
+      name: 'artifact_id',
+      type: 'string',
+      description: 'ID of artifact containing the file content (for large files)',
+      required: false,
     },
   ],
   examples: [

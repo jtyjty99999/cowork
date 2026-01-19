@@ -169,7 +169,7 @@ export const useCowork = () => {
     });
   }, []);
 
-  const addArtifact = useCallback((filename: string, taskId?: string) => {
+  const addArtifact = useCallback((filename: string, content?: string, taskId?: string) => {
     setState(prev => {
       const targetTaskId = taskId || prev.currentTaskId;
       if (!targetTaskId) return prev;
@@ -177,6 +177,7 @@ export const useCowork = () => {
       const artifact: Artifact = {
         id: generateId(),
         filename,
+        content,
         createdAt: new Date(),
       };
 
@@ -394,28 +395,52 @@ export const useCowork = () => {
   };
 
   /**
-   * 处理工具调用中的代码块引用
+   * 从 AI 响应中提取代码块并创建 Artifacts
    */
-  const processCodeBlockReferences = (toolCalls: any[], responseContent: string) => {
+  const extractAndCreateArtifacts = (responseContent: string): Map<string, string> => {
+    const artifactMap = new Map<string, string>();
+    
+    // 提取所有代码块
+    const codeBlockRegex = /```(\w+)(?::([^\n]+))?\n([\s\S]*?)```/g;
+    let match;
+    
+    while ((match = codeBlockRegex.exec(responseContent)) !== null) {
+      const [, language, filename, content] = match;
+      
+      if (filename) {
+        // 有文件名的代码块，创建 Artifact
+        console.log('📦 Creating artifact for:', filename);
+        addArtifact(filename.trim(), content);
+        artifactMap.set(filename.trim(), content);
+      }
+    }
+    
+    return artifactMap;
+  };
+
+  /**
+   * 处理工具调用中的 artifact_id 引用
+   */
+  const processArtifactReferences = (toolCalls: any[], artifactMap: Map<string, string>, currentArtifacts: Artifact[]) => {
     toolCalls.forEach((toolCall: any) => {
-      if (toolCall.tool === 'write_file' && toolCall.parameters.content) {
-        const content = toolCall.parameters.content.trim();
-        // 检查是否为引用
-        if (content.toLowerCase().includes('[see code block') || 
-            content.toLowerCase().includes('[参考') ||
-            content.toLowerCase().includes('[见上') ||
-            content === '[See code block above]' ||
-            content === '[See above]') {
-          
-          console.log('🔍 Detected code block reference for:', toolCall.parameters.path);
-          
-          const extracted = extractCodeBlockContent(responseContent, toolCall.parameters.path);
-          
-          if (extracted) {
-            toolCall.parameters.content = extracted;
-            console.log('✅ Extracted', extracted.length, 'characters');
+      if (toolCall.tool === 'write_file') {
+        // 如果有 artifact_id，从 artifacts 中获取内容
+        if (toolCall.parameters.artifact_id) {
+          const artifact = currentArtifacts.find(a => a.id === toolCall.parameters.artifact_id);
+          if (artifact && artifact.content) {
+            console.log('✅ Using artifact content for:', toolCall.parameters.path);
+            toolCall.parameters.content = artifact.content;
+            delete toolCall.parameters.artifact_id;
           } else {
-            console.warn('⚠️ No code block found for', toolCall.parameters.path);
+            console.warn('⚠️ Artifact not found:', toolCall.parameters.artifact_id);
+          }
+        }
+        // 如果没有 content 但有 path，尝试从当前响应的 artifactMap 中获取
+        else if (!toolCall.parameters.content && toolCall.parameters.path) {
+          const content = artifactMap.get(toolCall.parameters.path);
+          if (content) {
+            console.log('✅ Using code block content for:', toolCall.parameters.path);
+            toolCall.parameters.content = content;
           }
         }
       }
@@ -558,9 +583,9 @@ For SMALL files (< 50 lines), use write_file tool directly:
 }
 \`\`\`
 
-For LARGE files (> 50 lines, like HTML/CSS/JS games), use this two-step approach:
+For LARGE files (> 50 lines, like HTML/CSS/JS games), use code blocks with filename:
 
-Step 1: Display the file content in a code block with filename:
+Step 1: Display the file content in a code block with language:filename format:
 \`\`\`html:snake-game.html
 <!DOCTYPE html>
 <html>
@@ -568,22 +593,23 @@ Step 1: Display the file content in a code block with filename:
 </html>
 \`\`\`
 
-Step 2: Use write_file with a reference comment:
+Step 2: Use write_file WITHOUT content parameter (system will auto-extract from code block):
 \`\`\`tool:write_file
 {
-  "path": "snake-game.html",
-  "content": "[See code block above]"
+  "path": "snake-game.html"
 }
 \`\`\`
 
-The system will automatically extract content from the code block and create the file.
+The system automatically:
+1. Extracts code blocks with filenames (e.g., \`\`\`html:filename.html)
+2. Creates Artifacts for each code block
+3. Injects content when write_file is called with matching path
 
-**IMPORTANT JSON RULES:**
-- All JSON must be valid and properly escaped
-- For multi-line content in tool calls, use \\n for newlines
-- Escape special characters: \\" for quotes, \\\\ for backslashes
-- Do NOT embed large file content directly in tool parameters
-- Use code blocks for large content, then reference them
+**IMPORTANT:**
+- Use language:filename format in code blocks for large files
+- Do NOT include "content" parameter for files shown in code blocks
+- Do NOT embed large content in JSON parameters
+- The filename in code block must match the path in write_file
 
 IMPORTANT: 
 - Always use tool calls for file operations
@@ -677,8 +703,12 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                   const stepToolCalls = parseToolCalls(stepResponse.content);
 
                   if (stepToolCalls.length > 0) {
-                    // 处理代码块引用
-                    processCodeBlockReferences(stepToolCalls, stepResponse.content);
+                    // 提取代码块并创建 Artifacts
+                    const artifactMap = extractAndCreateArtifacts(stepResponse.content);
+                    const currentArtifacts = prev.artifacts[prev.currentTaskId!] || [];
+                    
+                    // 处理 artifact 引用
+                    processArtifactReferences(stepToolCalls, artifactMap, currentArtifacts);
                     
                     // 执行工具
                     const toolResults = await executeToolCalls(stepToolCalls);
@@ -749,8 +779,12 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                 { status: 'in_progress', label: 'Executing tools' },
               ]);
 
-              // 处理代码块引用 - 从 AI 响应中提取代码块内容
-              processCodeBlockReferences(toolCalls, response.content);
+              // 提取代码块并创建 Artifacts
+              const artifactMap = extractAndCreateArtifacts(response.content);
+              const currentArtifacts = prev.artifacts[prev.currentTaskId!] || [];
+              
+              // 处理 artifact 引用
+              processArtifactReferences(toolCalls, artifactMap, currentArtifacts);
 
               // 执行工具调用
               const toolResults = await executeToolCalls(toolCalls);
