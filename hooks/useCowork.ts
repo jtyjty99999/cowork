@@ -481,12 +481,9 @@ ${getPlanningPrompt()}
 
 ${generateToolsDocumentation()}
 
-When the user asks you to perform file operations (create, read, write, delete files), you MUST use the tool calling format shown above. For example:
+**FILE CREATION GUIDELINES:**
 
-User: "请帮我创建一个 hello.txt 文件，内容是 Hello World"
-You should respond with:
-我来帮你创建文件。
-
+For SMALL files (< 50 lines), use write_file tool directly:
 \`\`\`tool:write_file
 {
   "path": "hello.txt",
@@ -494,24 +491,36 @@ You should respond with:
 }
 \`\`\`
 
-**IMPORTANT JSON RULES:**
-- All JSON must be valid and properly escaped
-- For multi-line content, use \\n for newlines
-- Escape special characters: \\" for quotes, \\\\ for backslashes
-- Do NOT use unescaped newlines in JSON strings
-- Example of correct multi-line content:
+For LARGE files (> 50 lines, like HTML/CSS/JS games), use this two-step approach:
+
+Step 1: Display the file content in a code block with filename:
+\`\`\`html:snake-game.html
+<!DOCTYPE html>
+<html>
+...full content here...
+</html>
+\`\`\`
+
+Step 2: Use write_file with a reference comment:
 \`\`\`tool:write_file
 {
-  "path": "report.md",
-  "content": "# Title\\n\\nThis is line 1\\nThis is line 2\\n\\n## Section\\nMore content"
+  "path": "snake-game.html",
+  "content": "[See code block above]"
 }
 \`\`\`
 
-文件已创建成功！
+The system will automatically extract content from the code block and create the file.
+
+**IMPORTANT JSON RULES:**
+- All JSON must be valid and properly escaped
+- For multi-line content in tool calls, use \\n for newlines
+- Escape special characters: \\" for quotes, \\\\ for backslashes
+- Do NOT embed large file content directly in tool parameters
+- Use code blocks for large content, then reference them
 
 IMPORTANT: 
-- Always use tool calls for file operations, don't just describe what you would do
-- The system will automatically execute your tool calls and show results
+- Always use tool calls for file operations
+- The system will automatically execute your tool calls
 - You can call multiple tools in one response
 - All file paths are relative to the workspace directory (./workspace)
 
@@ -669,6 +678,34 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                 { status: 'completed', label: 'Response received' },
                 { status: 'in_progress', label: 'Executing tools' },
               ]);
+
+              // 处理代码块引用 - 从 AI 响应中提取代码块内容
+              toolCalls.forEach((toolCall: any) => {
+                if (toolCall.tool === 'write_file' && toolCall.parameters.content) {
+                  const content = toolCall.parameters.content.trim();
+                  // 检查是否为引用
+                  if (content.toLowerCase().includes('[see code block') || 
+                      content.toLowerCase().includes('[参考') ||
+                      content.toLowerCase().includes('[见上')) {
+                    // 提取代码块
+                    const filename = toolCall.parameters.path;
+                    const codeBlockRegex = new RegExp(`\`\`\`\\w+:${filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)\`\`\``);
+                    const match = response.content.match(codeBlockRegex);
+                    
+                    if (match) {
+                      toolCall.parameters.content = match[1];
+                    } else {
+                      // 尝试查找任何包含该文件扩展名的代码块
+                      const ext = filename.split('.').pop();
+                      const genericRegex = new RegExp(`\`\`\`${ext}[:\\n]([\\s\\S]*?)\`\`\``);
+                      const genericMatch = response.content.match(genericRegex);
+                      if (genericMatch) {
+                        toolCall.parameters.content = genericMatch[1];
+                      }
+                    }
+                  }
+                }
+              });
 
               // 执行工具调用
               const toolResults = await executeToolCalls(toolCalls);

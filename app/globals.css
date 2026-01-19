@@ -115,3 +115,43 @@ body {
   margin-top: 1em;
   margin-bottom: 1em;
 }
+
+.prose code {
+  color: #58a6ff;
+  background-color: rgba(110, 118, 129, 0.2);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 0.875em;
+}
+
+.prose pre code {
+  color: #e6edf3;
+  background-color: transparent;
+  padding: 0;
+}
+
+.prose a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose blockquote {
+  color: #8b949e;
+}
+
+.prose table {
+  color: #e6edf3;
+}
+
+.prose th {
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.prose td {
+  color: #e6edf3;
+}

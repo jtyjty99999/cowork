@@ -188,7 +188,7 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
                               {children}
                             </code>
                           ) : (
-                            <code className="bg-tertiary px-1.5 py-0.5 rounded text-sm" {...props}>
+                            <code className="not-prose bg-tertiary px-1.5 py-0.5 rounded text-sm text-[#58a6ff]" {...props}>
                               {children}
                             </code>
                           );
@@ -198,13 +198,19 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
                             {children}
                           </a>
                         ),
-                        pre: ({ node, children, ...props }: any) => (
-                          <pre className="bg-[#0d1117] p-4 rounded-lg overflow-x-auto my-3" {...props}>
-                            {children}
-                          </pre>
-                        ),
+                        pre: ({ node, children, ...props }: any) => {
+                          // Extract code content to check for file path
+                          const codeContent = node?.children?.[0]?.children?.[0]?.value || '';
+                          const hasFilePath = codeContent.startsWith('@/') || codeContent.match(/^[a-zA-Z]:[\\\/]/);
+                          
+                          return (
+                            <pre className="bg-[#0d1117] p-4 rounded-lg overflow-x-auto my-3 [&_code]:text-[#e6edf3]" {...props}>
+                              {children}
+                            </pre>
+                          );
+                        },
                         blockquote: ({ node, children, ...props }: any) => (
-                          <blockquote className="border-l-4 border-accent pl-4 italic my-3" {...props}>
+                          <blockquote className="border-l-4 border-accent pl-4 italic my-3 text-text-secondary" {...props}>
                             {children}
                           </blockquote>
                         ),
@@ -216,12 +222,12 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
                           </div>
                         ),
                         th: ({ node, children, ...props }: any) => (
-                          <th className="border border-border px-3 py-2 bg-secondary" {...props}>
+                          <th className="border border-border px-3 py-2 bg-secondary text-text-primary font-semibold" {...props}>
                             {children}
                           </th>
                         ),
                         td: ({ node, children, ...props }: any) => (
-                          <td className="border border-border px-3 py-2" {...props}>
+                          <td className="border border-border px-3 py-2 text-text-primary" {...props}>
                             {children}
                           </td>
                         ),
@@ -278,7 +284,7 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
                                           {children}
                                         </code>
                                       ) : (
-                                        <code className="bg-gray-100 px-1 py-0.5 rounded text-xs" {...props}>
+                                        <code className="not-prose bg-tertiary px-1 py-0.5 rounded text-xs text-[#58a6ff]" {...props}>
                                           {children}
                                         </code>
                                       );
@@ -350,18 +356,23 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
         {uploadedImages.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
             {uploadedImages.map((img, idx) => (
-              <div key={idx} className="relative group">
-                <img 
-                  src={img.url} 
-                  alt={img.name}
-                  className="h-20 w-20 object-cover rounded-lg border border-border"
-                />
-                <button
-                  onClick={() => removeImage(idx)}
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                >
-                  ×
-                </button>
+              <div key={idx} className="relative group flex flex-col items-center gap-1">
+                <div className="relative">
+                  <img 
+                    src={img.url} 
+                    alt={img.name}
+                    className="h-20 w-20 object-cover rounded-lg border border-border"
+                  />
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  >
+                    ×
+                  </button>
+                </div>
+                <span className="text-xs text-secondary max-w-[80px] truncate" title={img.name}>
+                  {img.name}
+                </span>
               </div>
             ))}
           </div>
