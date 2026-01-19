@@ -761,10 +761,9 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                   if (stepToolCalls.length > 0) {
                     // 提取代码块并创建 Artifacts
                     const artifactMap = extractAndCreateArtifacts(stepResponse.content);
-                    const currentArtifacts = prev.artifacts[prev.currentTaskId!] || [];
                     
-                    // 处理 artifact 引用
-                    processArtifactReferences(stepToolCalls, artifactMap, currentArtifacts);
+                    // 处理 artifact 引用（直接使用 artifactMap，不依赖 state）
+                    processArtifactReferences(stepToolCalls, artifactMap, []);
                     
                     // 执行工具
                     const toolResults = await executeToolCalls(stepToolCalls);
@@ -837,10 +836,9 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
 
               // 提取代码块并创建 Artifacts
               const artifactMap = extractAndCreateArtifacts(response.content);
-              const currentArtifacts = prev.artifacts[prev.currentTaskId!] || [];
               
-              // 处理 artifact 引用
-              processArtifactReferences(toolCalls, artifactMap, currentArtifacts);
+              // 处理 artifact 引用（直接使用 artifactMap，不依赖 state）
+              processArtifactReferences(toolCalls, artifactMap, []);
 
               // 执行工具调用
               const toolResults = await executeToolCalls(toolCalls);
