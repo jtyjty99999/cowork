@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { AppState, Task, Message, Artifact, WorkingFile, ProgressStep } from '@/types';
 import { aiService, AIMessage } from '@/lib/ai-service';
 import { parseToolCalls } from '@/lib/tools/parser';
@@ -105,6 +105,7 @@ const initialState: AppState = {
 
 export const useCowork = () => {
   const [state, setState] = useState<AppState>(initialState);
+  const isProcessingRef = useRef(false);
 
   const createNewTask = useCallback(() => {
     const taskId = generateId();
@@ -526,6 +527,14 @@ export const useCowork = () => {
    * 调用实际的 AI API
    */
   const getRealAIResponse = useCallback(async (userMessage: string, images?: { url: string; name: string; size: number; base64?: string }[]) => {
+    // 防止重复调用
+    if (isProcessingRef.current) {
+      console.warn('⚠️ AI is already responding, ignoring duplicate call');
+      return;
+    }
+    
+    isProcessingRef.current = true;
+    
     try {
       // 设置 AI 正在响应状态
       setState(prev => ({ ...prev, isAIResponding: true }));
@@ -967,6 +976,9 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
 
             // 重置 AI 响应状态
             setState(prev => ({ ...prev, isAIResponding: false }));
+          } finally {
+            // 确保重置 ref
+            isProcessingRef.current = false;
           }
         })();
 
