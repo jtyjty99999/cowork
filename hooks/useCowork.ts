@@ -402,23 +402,30 @@ export const useCowork = () => {
     
     console.log('🔍 Extracting code blocks from response...');
     
-    // 提取所有代码块 - 支持多种格式
+    // 提取所有代码块 - 支持多种格式，但排除工具调用
     const codeBlockRegex = /```(\w+)(?::([^\n]+))?\n([\s\S]*?)```/g;
     let match;
     const allCodeBlocks: Array<{ language: string; filename?: string; content: string }> = [];
     
     while ((match = codeBlockRegex.exec(responseContent)) !== null) {
       const [, language, filename, content] = match;
+      
+      // 跳过工具调用代码块（tool:xxx）
+      if (language === 'tool' || filename?.startsWith('tool:')) {
+        console.log('⏭️  Skipping tool call block');
+        continue;
+      }
+      
       allCodeBlocks.push({ language, filename: filename?.trim(), content });
       
-      if (filename) {
+      if (filename && !filename.includes('tool')) {
         // 有文件名的代码块，创建 Artifact
         console.log('📦 Creating artifact for:', filename.trim());
         addArtifact(filename.trim(), content);
         artifactMap.set(filename.trim(), content);
-      } else {
-        // 没有文件名，但记录下来供后续匹配
-        console.log('📝 Found code block without filename, language:', language);
+      } else if (language !== 'tool') {
+        // 没有文件名，但记录下来供后续匹配（排除 tool 类型）
+        console.log('📝 Found code block without filename, language:', language, 'length:', content.length);
       }
     }
     
