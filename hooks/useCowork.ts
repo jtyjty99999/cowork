@@ -857,6 +857,17 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
               console.log('📄 Response preview:', response.content.substring(0, 500));
               const artifactMap = extractAndCreateArtifacts(response.content);
               
+              // 显示工具调用的详细信息
+              console.log('🔨 Tool calls details:');
+              toolCalls.forEach((tc: any, idx: number) => {
+                console.log(`  ${idx + 1}. ${tc.tool}`);
+                console.log('     Parameters:', Object.keys(tc.parameters));
+                if (tc.parameters.content) {
+                  console.log('     Content length:', tc.parameters.content.length);
+                  console.log('     Content preview:', tc.parameters.content.substring(0, 100));
+                }
+              });
+              
               // 处理 artifact 引用（直接使用 artifactMap，不依赖 state）
               processArtifactReferences(toolCalls, artifactMap, []);
 
