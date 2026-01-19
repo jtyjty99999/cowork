@@ -356,6 +356,73 @@ export const useCowork = () => {
   }, []);
 
   /**
+   * 从 AI 响应中提取代码块内容
+   */
+  const extractCodeBlockContent = (responseContent: string, filename: string): string | null => {
+    let extracted = null;
+    
+    // 模式 1: ```language:filename
+    const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern1 = new RegExp(`\`\`\`\\w+:${escapedFilename}\\n([\\s\\S]*?)\`\`\``, 'i');
+    let match = responseContent.match(pattern1);
+    if (match) {
+      extracted = match[1];
+      console.log('✅ Matched pattern 1 (language:filename)');
+      return extracted;
+    }
+    
+    // 模式 2: ```language (匹配文件扩展名)
+    const ext = filename.split('.').pop();
+    const pattern2 = new RegExp(`\`\`\`${ext}\\n([\\s\\S]*?)\`\`\``, 'i');
+    match = responseContent.match(pattern2);
+    if (match) {
+      extracted = match[1];
+      console.log('✅ Matched pattern 2 (extension only)');
+      return extracted;
+    }
+    
+    // 模式 3: 任何代码块（取最后一个）
+    const pattern3 = /```[\w]*\n([\s\S]*?)```/g;
+    const matches = [...responseContent.matchAll(pattern3)];
+    if (matches.length > 0) {
+      extracted = matches[matches.length - 1][1];
+      console.log('✅ Matched pattern 3 (last code block)');
+      return extracted;
+    }
+    
+    return null;
+  };
+
+  /**
+   * 处理工具调用中的代码块引用
+   */
+  const processCodeBlockReferences = (toolCalls: any[], responseContent: string) => {
+    toolCalls.forEach((toolCall: any) => {
+      if (toolCall.tool === 'write_file' && toolCall.parameters.content) {
+        const content = toolCall.parameters.content.trim();
+        // 检查是否为引用
+        if (content.toLowerCase().includes('[see code block') || 
+            content.toLowerCase().includes('[参考') ||
+            content.toLowerCase().includes('[见上') ||
+            content === '[See code block above]' ||
+            content === '[See above]') {
+          
+          console.log('🔍 Detected code block reference for:', toolCall.parameters.path);
+          
+          const extracted = extractCodeBlockContent(responseContent, toolCall.parameters.path);
+          
+          if (extracted) {
+            toolCall.parameters.content = extracted;
+            console.log('✅ Extracted', extracted.length, 'characters');
+          } else {
+            console.warn('⚠️ No code block found for', toolCall.parameters.path);
+          }
+        }
+      }
+    });
+  };
+
+  /**
    * 真实的 AI 响应函数
    * 调用实际的 AI API
    */
@@ -610,6 +677,9 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                   const stepToolCalls = parseToolCalls(stepResponse.content);
 
                   if (stepToolCalls.length > 0) {
+                    // 处理代码块引用
+                    processCodeBlockReferences(stepToolCalls, stepResponse.content);
+                    
                     // 执行工具
                     const toolResults = await executeToolCalls(stepToolCalls);
                     
@@ -680,32 +750,7 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
               ]);
 
               // 处理代码块引用 - 从 AI 响应中提取代码块内容
-              toolCalls.forEach((toolCall: any) => {
-                if (toolCall.tool === 'write_file' && toolCall.parameters.content) {
-                  const content = toolCall.parameters.content.trim();
-                  // 检查是否为引用
-                  if (content.toLowerCase().includes('[see code block') || 
-                      content.toLowerCase().includes('[参考') ||
-                      content.toLowerCase().includes('[见上')) {
-                    // 提取代码块
-                    const filename = toolCall.parameters.path;
-                    const codeBlockRegex = new RegExp(`\`\`\`\\w+:${filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)\`\`\``);
-                    const match = response.content.match(codeBlockRegex);
-                    
-                    if (match) {
-                      toolCall.parameters.content = match[1];
-                    } else {
-                      // 尝试查找任何包含该文件扩展名的代码块
-                      const ext = filename.split('.').pop();
-                      const genericRegex = new RegExp(`\`\`\`${ext}[:\\n]([\\s\\S]*?)\`\`\``);
-                      const genericMatch = response.content.match(genericRegex);
-                      if (genericMatch) {
-                        toolCall.parameters.content = genericMatch[1];
-                      }
-                    }
-                  }
-                }
-              });
+              processCodeBlockReferences(toolCalls, response.content);
 
               // 执行工具调用
               const toolResults = await executeToolCalls(toolCalls);
