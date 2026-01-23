@@ -67,6 +67,64 @@ function repairJson(jsonStr: string): string {
 }
 
 /**
+ * 修复 content 字段中的未转义换行符
+ * 特别处理 write_file 工具的 content 参数
+ */
+function fixContentField(jsonStr: string): string {
+  // 找到 "content": " 的位置
+  const contentStart = jsonStr.indexOf('"content"');
+  if (contentStart === -1) return jsonStr;
+  
+  // 找到值开始的引号
+  const valueStart = jsonStr.indexOf('"', jsonStr.indexOf(':', contentStart) + 1);
+  if (valueStart === -1) return jsonStr;
+  
+  // 找到值结束的位置（下一个未转义的引号，或者 } 之前）
+  let valueEnd = valueStart + 1;
+  let depth = 0;
+  
+  while (valueEnd < jsonStr.length) {
+    const char = jsonStr[valueEnd];
+    
+    // 遇到换行符，说明字符串未正确结束
+    if (char === '\n' || char === '\r') {
+      // 继续查找，直到找到可能的结束位置
+      valueEnd++;
+      continue;
+    }
+    
+    // 遇到 } 或 ]，可能是字符串结束
+    if ((char === '}' || char === ']' || char === ',') && depth === 0) {
+      // 回退找到最后一个引号位置
+      let lastQuote = valueEnd - 1;
+      while (lastQuote > valueStart && jsonStr[lastQuote] !== '"') {
+        lastQuote--;
+      }
+      if (lastQuote > valueStart) {
+        valueEnd = lastQuote;
+        break;
+      }
+    }
+    
+    valueEnd++;
+  }
+  
+  // 提取 content 值
+  const content = jsonStr.substring(valueStart + 1, valueEnd);
+  
+  // 转义特殊字符
+  const escaped = content
+    .replace(/\\/g, '\\\\')  // 转义反斜杠
+    .replace(/\n/g, '\\n')   // 转义换行符
+    .replace(/\r/g, '\\r')   // 转义回车符
+    .replace(/\t/g, '\\t')   // 转义制表符
+    .replace(/"/g, '\\"');   // 转义双引号
+  
+  // 重建 JSON
+  return jsonStr.substring(0, valueStart + 1) + escaped + '"' + jsonStr.substring(valueEnd + 1);
+}
+
+/**
  * 尝试解析 JSON，使用多种策略
  */
 function tryParseJson(jsonStr: string): any {
@@ -83,6 +141,18 @@ function tryParseJson(jsonStr: string): any {
         .replace(/,\s*}/g, '}')
         .replace(/,\s*]/g, ']');
       return JSON.parse(cleaned);
+    },
+    
+    // 策略 4: 修复 content 字段中的未转义换行符
+    (str: string) => {
+      const fixed = fixContentField(str);
+      return JSON.parse(fixed);
+    },
+    
+    // 策略 5: 组合修复
+    (str: string) => {
+      const fixed = fixContentField(repairJson(str));
+      return JSON.parse(fixed);
     },
   ];
   
