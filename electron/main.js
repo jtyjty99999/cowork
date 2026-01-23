@@ -1,8 +1,41 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
+let setupWindow;
+
+// Config file path
+const configPath = path.join(app.getPath('userData'), 'config.json');
+
+// Load config
+function loadConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Failed to load config:', error);
+  }
+  return null;
+}
+
+// Save config
+function saveConfig(config) {
+  try {
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Failed to save config:', error);
+    return false;
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -46,6 +79,31 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function createSetupWindow() {
+  setupWindow = new BrowserWindow({
+    width: 600,
+    height: 700,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    frame: true,
+    show: false
+  });
+
+  setupWindow.loadFile(path.join(__dirname, 'setup.html'));
+
+  setupWindow.once('ready-to-show', () => {
+    setupWindow.show();
+  });
+
+  setupWindow.on('closed', () => {
+    setupWindow = null;
   });
 }
 
@@ -114,11 +172,23 @@ function createMenu() {
 
 // App lifecycle
 app.whenReady().then(() => {
-  createWindow();
+  const config = loadConfig();
+  
+  // Show setup window if no config exists
+  if (!config || !config.workspacePath) {
+    createSetupWindow();
+  } else {
+    createWindow();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      const config = loadConfig();
+      if (!config || !config.workspacePath) {
+        createSetupWindow();
+      } else {
+        createWindow();
+      }
     }
   });
 });
@@ -135,5 +205,58 @@ ipcMain.handle('get-app-path', () => {
 });
 
 ipcMain.handle('get-workspace-path', () => {
+  const config = loadConfig();
+  if (config && config.workspacePath) {
+    return config.workspacePath;
+  }
   return path.join(app.getPath('userData'), 'workspace');
+});
+
+// Setup window IPC handlers
+ipcMain.handle('select-workspace', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory', 'createDirectory'],
+    title: '选择工作区文件夹',
+    buttonLabel: '选择'
+  });
+  
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+  return null;
+});
+
+ipcMain.handle('get-config', () => {
+  return loadConfig();
+});
+
+ipcMain.handle('save-config', async (event, config) => {
+  const success = saveConfig(config);
+  if (success) {
+    // Close setup window and open main window
+    if (setupWindow) {
+      setupWindow.close();
+    }
+    createWindow();
+    
+    // Save API key to .env.local file
+    if (config.apiKey) {
+      const envPath = path.join(process.cwd(), '.env.local');
+      const envContent = `NEXT_PUBLIC_DEEPSEEK_API_KEY=${config.apiKey}\nNEXT_PUBLIC_USE_REAL_AI=true\n`;
+      try {
+        fs.writeFileSync(envPath, envContent, 'utf8');
+        console.log('API key saved to .env.local');
+      } catch (error) {
+        console.error('Failed to save .env.local:', error);
+      }
+    }
+  }
+  return success;
+});
+
+ipcMain.handle('skip-setup', () => {
+  if (setupWindow) {
+    setupWindow.close();
+  }
+  createWindow();
 });

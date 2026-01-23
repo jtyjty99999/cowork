@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cowork 初始设置</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    .logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo h1 {
+      font-size: 32px;
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+    
+    .logo p {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+    }
+    
+    label {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .label-description {
+      display: block;
+      font-weight: normal;
+      color: #666;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .input-group {
+      position: relative;
+    }
+    
+    .browse-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.3s;
+    }
+    
+    .browse-btn:hover {
+      background: #5568d3;
+    }
+    
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+    
+    .skip-btn {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      color: #666;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: all 0.3s;
+    }
+    
+    .skip-btn:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+    
+    .info-box {
+      background: #f5f7ff;
+      border-left: 4px solid #667eea;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #555;
+    }
+    
+    .error {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 4px;
+      display: none;
+    }
+    
+    .show-password {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #999;
+      font-size: 12px;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>🚀 Cowork</h1>
+      <p>AI 协作开发助手</p>
+    </div>
+    
+    <div class="info-box">
+      💡 首次启动需要配置工作区路径和 API Key，这些设置可以稍后在应用中修改。
+    </div>
+    
+    <form id="setupForm">
+      <div class="form-group">
+        <label>
+          工作区路径
+          <span class="label-description">选择一个文件夹用于存储项目文件</span>
+        </label>
+        <div class="input-group">
+          <input 
+            type="text" 
+            id="workspacePath" 
+            placeholder="点击浏览选择文件夹..."
+            readonly
+          />
+          <button type="button" class="browse-btn" onclick="selectWorkspace()">浏览</button>
+        </div>
+        <span class="error" id="workspaceError">请选择工作区路径</span>
+      </div>
+      
+      <div class="form-group">
+        <label>
+          DeepSeek API Key
+          <span class="label-description">从 https://platform.deepseek.com 获取</span>
+        </label>
+        <div class="input-group">
+          <input 
+            type="password" 
+            id="apiKey" 
+            placeholder="sk-..."
+          />
+          <span class="show-password" onclick="togglePassword()">👁️</span>
+        </div>
+        <span class="error" id="apiKeyError">请输入 API Key</span>
+      </div>
+      
+      <button type="submit" class="submit-btn">开始使用</button>
+      <button type="button" class="skip-btn" onclick="skipSetup()">稍后配置</button>
+    </form>
+  </div>
+  
+  <script>
+    let selectedWorkspacePath = '';
+    
+    // 选择工作区
+    async function selectWorkspace() {
+      const path = await window.electronAPI.selectWorkspace();
+      if (path) {
+        selectedWorkspacePath = path;
+        document.getElementById('workspacePath').value = path;
+        document.getElementById('workspaceError').style.display = 'none';
+      }
+    }
+    
+    // 切换密码显示
+    function togglePassword() {
+      const input = document.getElementById('apiKey');
+      const icon = event.target;
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        icon.textContent = '👁️';
+      }
+    }
+    
+    // 跳过设置
+    function skipSetup() {
+      window.electronAPI.skipSetup();
+    }
+    
+    // 提交表单
+    document.getElementById('setupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const workspacePath = document.getElementById('workspacePath').value;
+      const apiKey = document.getElementById('apiKey').value;
+      
+      let hasError = false;
+      
+      if (!workspacePath) {
+        document.getElementById('workspaceError').style.display = 'block';
+        hasError = true;
+      } else {
+        document.getElementById('workspaceError').style.display = 'none';
+      }
+      
+      if (!apiKey) {
+        document.getElementById('apiKeyError').style.display = 'block';
+        hasError = true;
+      } else {
+        document.getElementById('apiKeyError').style.display = 'none';
+      }
+      
+      if (!hasError) {
+        await window.electronAPI.saveConfig({
+          workspacePath: selectedWorkspacePath,
+          apiKey: apiKey
+        });
+      }
+    });
+    
+    // 加载已有配置
+    window.addEventListener('DOMContentLoaded', async () => {
+      const config = await window.electronAPI.getConfig();
+      if (config) {
+        if (config.workspacePath) {
+          selectedWorkspacePath = config.workspacePath;
+          document.getElementById('workspacePath').value = config.workspacePath;
+        }
+        if (config.apiKey) {
+          document.getElementById('apiKey').value = config.apiKey;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -26,3 +26,11 @@ contextBridge.exposeInMainWorld('electron', {
     }
   }
 });
+
+// Expose setup window specific APIs
+contextBridge.exposeInMainWorld('electronAPI', {
+  selectWorkspace: () => ipcRenderer.invoke('select-workspace'),
+  getConfig: () => ipcRenderer.invoke('get-config'),
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  skipSetup: () => ipcRenderer.invoke('skip-setup')
+});
