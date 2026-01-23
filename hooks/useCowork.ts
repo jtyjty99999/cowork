@@ -887,6 +887,35 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                         },
                       })),
                     });
+                  } else {
+                    // AI 没有生成工具调用，但步骤需要工具
+                    console.error(`❌ 步骤 ${i + 1} 需要工具 ${step.tool}，但 AI 没有生成工具调用`);
+                    
+                    step.status = 'failed';
+                    step.error = `AI 未生成 ${step.tool} 工具调用`;
+                    
+                    // 添加错误消息
+                    addMessage({
+                      role: 'assistant',
+                      content: `⚠️ 步骤 ${i + 1} 执行失败：AI 未能生成所需的 ${step.tool} 工具调用。\n\n响应内容：\n${stepResponse.content}\n\n任务执行已停止。`,
+                    });
+                    
+                    // 更新消息中的任务计划状态
+                    updateMessageTaskPlan(planMessageId, taskPlan.map(s => ({
+                      id: s.id,
+                      description: s.description,
+                      status: s.status,
+                    })));
+                    
+                    // 更新进度显示失败状态
+                    updateProgress(taskPlan.map((s, idx) => ({
+                      status: idx < i ? 'completed' : idx === i ? 'failed' : 'pending',
+                      label: s.description,
+                    })));
+                    
+                    // 停止执行
+                    setState(prev => ({ ...prev, isAIResponding: false }));
+                    return;
                   }
                 } else {
                   // 步骤不需要工具，让 AI 思考或分析
