@@ -147,6 +147,29 @@ export class FileSystemService {
   }
 
   /**
+   * 移动或重命名文件
+   */
+  async moveFile(source: string, destination: string, workspacePath?: string): Promise<WriteFileResult> {
+    try {
+      const response = await fetch('/api/filesystem/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, destination, workspacePath }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '移动文件失败');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('移动文件失败:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 搜索文件
    */
   async searchFiles(pattern: string, directory: string = '.'): Promise<FileInfo[]> {
