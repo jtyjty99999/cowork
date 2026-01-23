@@ -28,14 +28,23 @@ export const createDirectoryTool: ToolDefinition = {
     },
   ],
   execute: async (parameters) => {
-    const result = await fileSystemService.createDirectory(parameters.path);
-    return { success: true, result };
+    try {
+      const result = await fileSystemService.createDirectory(parameters.path);
+      return { success: true, result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '创建目录失败'
+      };
+    }
   },
   formatResult: (result) => {
     if (!result.success) {
       return `❌ 创建失败: ${result.error}`;
     }
-    return `✅ 目录已创建\n📁 路径: \`${result.result.path}\``;
+    const resultData = result as any;
+    const path = resultData.data?.path || resultData.result?.path || '未知路径';
+    return `✅ 目录已创建\n📁 路径: \`${path}\``;
   },
   generateSummary: (parameters) => {
     return `创建目录: ${parameters.path}`;

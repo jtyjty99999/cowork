@@ -28,14 +28,23 @@ export const deleteFileTool: ToolDefinition = {
     },
   ],
   execute: async (parameters) => {
-    const result = await fileSystemService.delete(parameters.path);
-    return { success: true, result };
+    try {
+      const result = await fileSystemService.delete(parameters.path);
+      return { success: true, result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '删除失败'
+      };
+    }
   },
   formatResult: (result) => {
     if (!result.success) {
       return `❌ 删除失败: ${result.error}`;
     }
-    return `✅ 已删除\n🗑️ 路径: \`${result.result.path}\``;
+    const resultData = result as any;
+    const path = resultData.data?.path || resultData.result?.path || '未知路径';
+    return `✅ 已删除\n🗑️ 路径: \`${path}\``;
   },
   generateSummary: (parameters) => {
     return `删除: ${parameters.path}`;

@@ -28,18 +28,28 @@ export const readFileTool: ToolDefinition = {
     },
   ],
   execute: async (parameters) => {
-    const result = await fileSystemService.readFile(parameters.path, getWorkspacePath());
-    return { success: true, result };
+    try {
+      const result = await fileSystemService.readFile(parameters.path, getWorkspacePath());
+      return { success: true, result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '读取文件失败'
+      };
+    }
   },
   formatResult: (result) => {
     if (!result.success) {
       return `❌ 读取失败: ${result.error}`;
     }
-    const content = result.result.content;
+    const resultData = result as any;
+    const data = resultData.data || resultData.result;
+    const content = data?.content || '';
+    const path = data?.path || '未知路径';
     const contentPreview = content.length > 200 
       ? content.slice(0, 200) + '...' 
       : content;
-    return `✅ 文件读取成功\n📄 路径: \`${result.result.path}\`\n📝 内容:\n\`\`\`\n${contentPreview}\n\`\`\``;
+    return `✅ 文件读取成功\n📄 路径: \`${path}\`\n📝 内容:\n\`\`\`\n${contentPreview}\n\`\`\``;
   },
   generateSummary: (parameters) => {
     return `读取文件: ${parameters.path}`;

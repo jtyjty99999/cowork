@@ -28,15 +28,27 @@ export const listDirectoryTool: ToolDefinition = {
     },
   ],
   execute: async (parameters) => {
-    const result = await fileSystemService.listDirectory(parameters.path || '.', getWorkspacePath());
-    return { success: true, result };
+    try {
+      const result = await fileSystemService.listDirectory(parameters.path || '.', getWorkspacePath());
+      return { success: true, result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '列出目录失败'
+      };
+    }
   },
   formatResult: (result) => {
     if (!result.success) {
       return `❌ 列出目录失败: ${result.error}`;
     }
-    const files = result.result;
-    if (!files || files.length === 0) {
+    
+    // 数据在 result.data 字段（来自消息保存时的转换）
+    // 而不是 result.result 字段
+    const resultData = result as any;
+    const files = resultData.data || resultData.result;
+    
+    if (!files || !Array.isArray(files) || files.length === 0) {
       return '📂 目录为空';
     }
     const formatFileSize = (bytes: number) => {
