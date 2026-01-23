@@ -15,9 +15,12 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    titleBarStyle: 'hiddenInset',
+    // Use default titlebar for better dragging experience
+    // titleBarStyle: 'default' is implicit
     backgroundColor: '#1a1a1a',
-    show: false
+    show: false,
+    // Enable window dragging
+    frame: true
   });
 
   // Load the Next.js app
