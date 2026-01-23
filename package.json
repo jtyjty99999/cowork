@@ -2,11 +2,44 @@
   "name": "claude-cowork-nextjs",
   "version": "1.0.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "next build && electron-builder",
+    "electron:build:mac": "next build && electron-builder --mac",
+    "electron:build:win": "next build && electron-builder --win",
+    "electron:build:linux": "next build && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.cowork.app",
+    "productName": "Cowork",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"],
+      "icon": "electron/icon.icns"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "electron/icon.ico"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility",
+      "icon": "electron/icon.png"
+    }
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
@@ -24,8 +57,13 @@
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.17",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "wait-on": "^9.0.3"
   }
 }

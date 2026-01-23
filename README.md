@@ -150,7 +150,7 @@ cowork/
    pnpm install
    ```
 
-### Running Locally
+### Running as Web Application
 
 1. Start the development server:
    ```bash
@@ -165,6 +165,26 @@ cowork/
    ```
    http://localhost:3000
    ```
+
+### Running as Desktop Application
+
+1. Start the desktop app in development mode:
+   ```bash
+   npm run electron:dev
+   ```
+
+2. Build desktop app for your platform:
+   ```bash
+   # Build for current platform
+   npm run electron:build
+   
+   # Or build for specific platforms
+   npm run electron:build:mac    # macOS
+   npm run electron:build:win    # Windows
+   npm run electron:build:linux  # Linux
+   ```
+
+📚 **Desktop guide**: See [ELECTRON.md](./ELECTRON.md) for detailed desktop app documentation.
 
 ### Connecting to Real AI Models
 
