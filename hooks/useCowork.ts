@@ -705,8 +705,11 @@ ${generateToolsDocumentation()}
 }
 \`\`\`
 
-IMPORTANT: 
-- Always use tool calls for file operations
+**CRITICAL TOOL CALL REQUIREMENTS:**
+- When executing a task step that specifies a tool (e.g., [write_file], [list_directory]), you MUST generate the tool call
+- Do NOT just describe what you would do - actually call the tool using the format below
+- Tool call format: \`\`\`tool:tool_name\\n{parameters}\\n\`\`\`
+- If you don't generate a tool call when required, the step will FAIL
 - The system will automatically execute your tool calls
 - You can call multiple tools in one response
 - All file paths are relative to the workspace directory (./workspace)
