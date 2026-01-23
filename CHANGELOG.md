@@ -1,5 +1,234 @@
 # 更新日志
 
+## [1.0.3] - 2026-01-23
+
+### 🎉 新功能
+
+#### 桌面应用支持（Electron）
+
+**功能描述**：
+- 将 Web 应用打包为原生桌面应用，支持 macOS、Windows、Linux
+- 提供完整的桌面应用体验，包括原生窗口控制、应用菜单、键盘快捷键
+- 独立的工作区管理，数据存储在系统用户目录
+
+**核心特性**：
+- ✅ **Electron 集成**：使用 Electron 框架构建跨平台桌面应用
+- ✅ **开发模式**：支持热重载，自动检测 Next.js 开发服务器端口
+- ✅ **生产构建**：支持打包为 DMG（macOS）、NSIS/Portable（Windows）、AppImage/DEB（Linux）
+- ✅ **原生菜单**：完整的应用菜单和键盘快捷键（Cmd/Ctrl+N 新建聊天，Cmd/Ctrl+Q 退出）
+- ✅ **窗口管理**：标准窗口控制，支持拖拽、最小化、最大化
+- ✅ **安全通信**：使用 preload 脚本实现主进程和渲染进程的安全 IPC 通信
+
+**新增文件**：
+- `electron/main.js` - Electron 主进程，管理窗口生命周期
+- `electron/preload.js` - 安全的 IPC 桥接脚本
+- `electron/setup.html` - 启动配置窗口
+- `ELECTRON.md` - 桌面应用使用文档
+
+**配置更改**：
+- `package.json` - 添加 Electron 脚本和构建配置
+- `next.config.js` - 配置静态导出以支持 Electron
+- `.gitignore` - 添加 Electron 构建产物目录
+
+**使用方法**：
+```bash
+# 开发模式
+npm run electron:dev
+
+# 构建桌面应用
+npm run electron:build        # 当前平台
+npm run electron:build:mac    # macOS
+npm run electron:build:win    # Windows
+npm run electron:build:linux  # Linux
+```
+
+**Commits**：
+- `1a898f8` - feat: add desktop application support with Electron
+
+#### 启动配置窗口
+
+**功能描述**：
+- 首次启动时显示精美的配置窗口
+- 用户可以选择工作区路径和配置 DeepSeek API Key
+- 配置持久化保存，后续启动自动加载
+
+**界面特性**：
+- 🎨 **现代化设计**：渐变背景、卡片式布局、流畅动画
+- 📁 **工作区选择**：原生文件选择器，支持创建新文件夹
+- 🔑 **API Key 配置**：密码输入框，支持显示/隐藏切换
+- 💾 **配置持久化**：保存到 `userData/config.json`
+- ⚙️ **自动配置**：API Key 自动写入 `.env.local` 文件
+- ⏭️ **跳过选项**：可选择稍后配置
+
+**工作流程**：
+1. 首次启动显示配置窗口
+2. 用户选择工作区文件夹
+3. 用户输入 DeepSeek API Key
+4. 配置保存到用户数据目录
+5. 关闭配置窗口，打开主窗口
+6. 后续启动直接使用已保存配置
+
+**配置文件位置**：
+- **macOS**: `~/Library/Application Support/Cowork/config.json`
+- **Windows**: `%APPDATA%\Cowork\config.json`
+- **Linux**: `~/.config/Cowork/config.json`
+
+**Commits**：
+- `20b5dc9` - feat: add startup configuration window for workspace and API key setup
+
+#### 文件移动工具（move_file）
+
+**功能描述**：
+- 新增 `move_file` 工具，支持文件移动和重命名
+- 完善文件整理功能，可以将文件移动到分类文件夹
+- 自动创建目标目录
+
+**工具特性**：
+- ✅ 移动文件到不同目录
+- ✅ 重命名文件
+- ✅ 自动创建目标目录
+- ✅ 路径安全验证（限制在工作区内）
+- ✅ 错误处理和友好的错误消息
+
+**使用示例**：
+```tool:move_file
+{
+  "source": "report.md",
+  "destination": "documents/report.md"
+}
+```
+
+**新增文件**：
+- `lib/tools/filesystem/move-file.ts` - 移动文件工具实现
+- `app/api/filesystem/move/route.ts` - 文件移动 API 端点
+
+**Commits**：
+- `fa8e5ca` - feat: add move_file tool for file organization tasks
+
+### 🐛 Bug 修复
+
+#### 修复文件系统工具数据访问错误
+
+**问题描述**：
+- 所有文件系统工具出现 `TypeError: Cannot read properties of undefined (reading 'path')`
+- `list_directory` 显示"目录为空"，即使目录中有文件
+- `create_directory`、`read_file`、`delete_file` 等工具崩溃
+
+**根本原因**：
+- API 返回数据结构：`{ success: true, path: "...", ... }`
+- `execute` 包装后：`{ success: true, result: { success: true, path: "..." } }`
+- 保存到消息时转换：`{ success: true, data: { success: true, path: "..." } }`
+- `formatResult` 访问 `result.result` → `undefined`
+
+**修复方案**：
+- ✅ 修改所有工具的 `formatResult` 使用 `result.data || result.result`
+- ✅ 添加 try-catch 错误处理到所有 `execute` 函数
+- ✅ 提供安全的默认值防止 undefined 访问
+- ✅ 添加数组类型检查（list_directory）
+
+**影响的工具**：
+- `list_directory` - 现在能正确显示文件列表
+- `create_directory` - 安全访问路径数据
+- `read_file` - 安全访问内容和路径
+- `delete_file` - 安全访问路径数据
+
+**Commits**：
+- `8a96591` - fix: correct data access in all filesystem tools formatResult
+
+#### 修复 AI 跳过工具调用问题
+
+**问题描述**：
+- AI 在某些步骤不生成工具调用
+- 步骤显示"完成"但实际未执行
+- 例如：任务需要 `list_directory`，但 AI 只描述要做什么，不实际调用工具
+
+**修复方案**：
+- ✅ **检测未生成工具调用**：当步骤需要工具但 AI 未生成时，标记为失败
+- ✅ **显示清晰错误**：`AI 未能生成所需的 [tool] 工具调用`
+- ✅ **停止任务执行**：防止后续步骤基于错误状态继续
+- ✅ **显示 AI 响应**：帮助调试为什么工具调用未生成
+
+**强化提示词**：
+- ✅ **系统级提示**：添加 CRITICAL 标记强调工具调用是硬性要求
+- ✅ **步骤级提示**：提供具体格式示例和强制性语言
+- ✅ **双层强制机制**：系统提示 + 步骤提示确保 AI 生成工具调用
+
+**Commits**：
+- `84f0c42` - fix: handle case when AI fails to generate required tool calls
+- `c2b9fe3` - fix: strengthen prompt to force AI to generate tool calls
+- `65320fa` - fix: add system-level critical instruction about tool call requirements
+
+#### 修复 JSON 解析失败问题
+
+**问题描述**：
+- AI 生成的 `write_file` 工具调用 JSON 解析失败
+- 错误：`Unterminated string in JSON at position 1277`
+- 原因：`content` 字段包含未转义的换行符
+
+**修复方案**：
+- ✅ 添加 `fixContentField()` 函数智能修复 content 字段
+- ✅ 检测并转义特殊字符：`\n` `\r` `\t` `\"` `\\`
+- ✅ 添加为解析策略 4 和 5（单独使用和组合使用）
+- ✅ 处理跨越多行的字符串
+
+**解析策略**：
+1. 直接解析（标准 JSON）
+2. 基础修复（注释、尾随逗号）
+3. 额外清理（更激进的逗号移除）
+4. **修复 content 字段**（新增 - 处理未转义换行符）
+5. **组合修复**（新增 - content 字段 + 基础修复）
+
+**Commits**：
+- `ba08c0b` - fix: improve JSON parser to handle unescaped newlines in content field
+
+#### 修复 Electron 404 错误
+
+**问题描述**：
+- Electron 窗口显示 "This page could not be found"
+- 硬编码加载 `localhost:3000`，但 Next.js 运行在 `localhost:3003`
+
+**修复方案**：
+- ✅ 添加 `ELECTRON_START_URL` 环境变量支持
+- ✅ 更新启动脚本检测多个端口（3000-3003）
+- ✅ 自动使用 Next.js 实际运行的端口
+- ✅ 添加日志显示加载的 URL
+
+**Commits**：
+- `7dcbdec` - fix: resolve Electron 404 error by detecting correct dev server port
+
+#### 修复窗口拖拽问题
+
+**问题描述**：
+- 窗口使用 `hiddenInset` 标题栏样式
+- 没有可拖拽区域，无法移动窗口
+
+**修复方案**：
+- ✅ 移除 `titleBarStyle: 'hiddenInset'`
+- ✅ 使用默认标题栏提供原生体验
+- ✅ 显式设置 `frame: true` 确保标准窗口框架
+
+**Commits**：
+- `d5cc8c8` - fix: enable window dragging by using default titlebar
+
+### 📝 文档更新
+
+- ✅ 新增 `ELECTRON.md` - 桌面应用完整使用文档
+- ✅ 更新 `README.md` - 添加桌面应用使用说明
+- ✅ 更新 `.gitignore` - 添加 Electron 构建产物
+
+### 🎯 可用的文件系统工具
+
+现在支持完整的文件操作：
+- ✅ `list_directory` - 列出目录内容
+- ✅ `read_file` - 读取文件
+- ✅ `write_file` - 写入文件
+- ✅ `create_directory` - 创建目录
+- ✅ `delete_file` - 删除文件
+- ✅ `move_file` - 移动/重命名文件 **← 新增**
+- ✅ `search_files` - 搜索文件
+
+---
+
 ## [1.0.2] - 2026-01-19
 
 ### 🎉 新功能
