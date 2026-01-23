@@ -812,12 +812,22 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
                     { role: 'assistant', content: response.content },
                     { role: 'user', content: `现在执行步骤 ${i + 1}: ${step.description}
 
-**重要提示：**
-- 只执行当前这一个步骤，不要执行后续步骤
-- 使用 ${step.tool} 工具完成这个步骤
-- 基于之前步骤的结果来执行当前步骤${previousResults}
+**CRITICAL - 你必须调用工具：**
+- 这个步骤需要使用 ${step.tool} 工具
+- 你必须在响应中包含工具调用代码块
+- 格式：\`\`\`tool:${step.tool}\\n{参数}\\n\`\`\`
+- 不要只是描述要做什么，必须实际调用工具
 
-请调用 ${step.tool} 工具来完成当前步骤。` },
+**示例格式：**
+\`\`\`tool:${step.tool}
+{
+  "path": "."
+}
+\`\`\`
+
+**之前步骤的结果：**${previousResults}
+
+请立即调用 ${step.tool} 工具（使用上面的格式）。` },
                   ];
 
                   const stepResponse = await aiService.chat(stepMessages);
