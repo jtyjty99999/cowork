@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "electron": "electron .",
-    "electron:dev": "concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "electron:dev": "concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http-get://localhost:3000 http-get://localhost:3001 http-get://localhost:3002 http-get://localhost:3003 -t 30000 && cross-env NODE_ENV=development ELECTRON_START_URL=http://localhost:3003 electron .\"",
     "electron:build": "next build && electron-builder",
     "electron:build:mac": "next build && electron-builder --mac",
     "electron:build:win": "next build && electron-builder --win",

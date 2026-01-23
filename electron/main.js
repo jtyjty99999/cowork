@@ -22,9 +22,10 @@ function createWindow() {
 
   // Load the Next.js app
   const url = isDev
-    ? 'http://localhost:3000'
+    ? process.env.ELECTRON_START_URL || 'http://localhost:3000'
     : `file://${path.join(__dirname, '../out/index.html')}`;
 
+  console.log(`Loading URL: ${url}`);
   mainWindow.loadURL(url);
 
   // Show window when ready
