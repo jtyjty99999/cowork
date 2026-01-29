@@ -29,7 +29,7 @@ AI 自动将复杂任务拆分为多个步骤，并为每个步骤指定所需�
 ### Skills 系统
 通过斜杠命令调用预定义的 Skill，AI 按照 Skill 指令执行任务。
 
-![Skills 调用](./screenshots/skill-call-example.png)
+![Skills 调用](./docs/screenshots/skill-call-example.png)
 
 ## ✨ 核心特性
 
