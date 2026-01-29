@@ -25,6 +25,13 @@ export interface Message {
       error?: string;
     };
   }[];
+  skillCall?: {
+    skillName: string;
+    arguments: string[];
+    status: 'pending' | 'executing' | 'completed' | 'failed';
+    description?: string;
+    allowedTools?: string[];
+  };
   command?: Command;
   taskPlan?: {
     id: string;

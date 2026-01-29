@@ -346,6 +346,7 @@ Modify components in the `components/` directory to add or remove features.
 - [x] **Markdown 渲染**: 消息内容支持 Markdown
 - [x] **代码高亮**: 代码块语法高亮
 - [x] **JSON 解析增强**: 多策略容错，处理未转义字符
+- [x] **Skills 系统**: 可扩展的 AI 能力系统，支持自定义 Skill
 
 ## 🚀 未来规划
 
@@ -355,7 +356,7 @@ Modify components in the `components/` directory to add or remove features.
 - [ ] 深色模式支持
 - [ ] 任务导出/导入
 - [ ] 更多工具集成（数据库、Git 等）
-- [ ] 插件系统
+- [x] ~~插件系统~~ → Skills 系统已实现
 - [ ] 性能优化和缓存
 
 ## Security Considerations
@@ -378,30 +379,12 @@ This is a demo implementation. For production use:
 - [工具开发指南](./docs/AI_TOOLS_GUIDE.md) - 如何开发新工具
 - [文件系统快速开始](./docs/FILESYSTEM_QUICKSTART.md) - 文件操作指南
 - [网络访问指南](./docs/WEB_ACCESS_GUIDE.md) - 网络请求使用
+- [Skills 系统指南](./docs/SKILLS_GUIDE.md) - 创建和使用 Skills
 - [文档索引](./docs/INDEX.md) - 所有文档列表
 
 ## 📝 更新日志
 
-### 2026-01-23 (v1.0.3)
-- 🎉 **桌面应用支持**：使用 Electron 构建跨平台桌面应用
-- 🎉 **启动配置窗口**：首次启动时配置工作区和 API Key
-- 🎉 **文件移动工具**：新增 move_file 工具支持文件整理
-- 🐛 修复文件系统工具数据访问错误（TypeError）
-- 🐛 修复 AI 跳过工具调用问题（双层强制机制）
-- 🐛 修复 JSON 解析失败（处理未转义换行符）
-- 🐛 修复 Electron 404 错误（自动检测端口）
-- 🐛 修复窗口拖拽问题（启用标准标题栏）
-- 📚 新增 ELECTRON.md 桌面应用文档
-
-### 2026-01-19 (v1.0.2)
-- ✨ 改进任务规划为真正的逐步执行
-- ✨ 添加任务执行错误处理机制
-- 🐛 修复 fetch_url 工具数据验证问题
-- 🐛 修复重复执行问题（禁用 StrictMode）
-- 🐛 修复 Artifact 内容注入竞态条件
-- 📚 添加完整的功能文档
-
-### 2026-01-16 (v1.0.0)
+### 2025-01-16
 - ✨ 实现任务规划系统
 - ✨ 重构 JSON 解析器（多策略容错）
 - ✨ 添加快速任务模板（8 个预制模板）

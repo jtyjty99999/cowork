@@ -40,7 +40,3 @@ script.js
 # workspace - user data files
 /workspace/*
 !/workspace/.gitkeep
-
-# electron
-/dist
-/out

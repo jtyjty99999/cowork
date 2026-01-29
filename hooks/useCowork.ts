@@ -7,6 +7,16 @@ import { parseToolCalls } from '@/lib/tools/parser';
 import { executeToolCalls, generateToolsDocumentation } from '@/lib/tools/registry';
 import { setWorkspacePath } from '@/lib/workspace-context';
 import { parsePlan, getPlanningPrompt } from '@/lib/task-planner';
+import {
+  parseSkillCommand,
+  getSkill,
+  prepareSkillPrompt,
+  generateSkillsDocumentation,
+  getAllSkills,
+  registerSkill,
+  clearRegistry,
+  initializeRegistry,
+} from '@/lib/skills';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -106,6 +116,41 @@ const initialState: AppState = {
 export const useCowork = () => {
   const [state, setState] = useState<AppState>(initialState);
   const isProcessingRef = useRef(false);
+  const skillsLoadedRef = useRef(false);
+
+  // 加载 Skills 到 registry
+  const loadSkillsToRegistry = useCallback(async () => {
+    if (skillsLoadedRef.current) return;
+    
+    try {
+      clearRegistry();
+      initializeRegistry({
+        userSkillsPath: '~/.cowork/skills',
+        projectSkillsPath: '.cowork/skills',
+      });
+
+      const response = await fetch('/api/skills/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userSkillsPath: '~/.cowork/skills',
+          projectSkillsPath: '.cowork/skills',
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        for (const skill of result.skills) {
+          // API 返回的是已解析的 skill 对象，直接注册
+          registerSkill(skill);
+        }
+        skillsLoadedRef.current = true;
+        console.log(`⚡ Skills loaded to registry: ${getAllSkills().length} skills`);
+      }
+    } catch (error) {
+      console.error('Failed to load skills:', error);
+    }
+  }, []);
 
   const createNewTask = useCallback(() => {
     const taskId = generateId();
@@ -561,6 +606,71 @@ export const useCowork = () => {
       // 设置 AI 正在响应状态
       setState(prev => ({ ...prev, isAIResponding: true }));
 
+      // 确保 Skills 已加载到 registry
+      await loadSkillsToRegistry();
+
+      // ========== Skill 命令检测 ==========
+      const skillCommand = parseSkillCommand(userMessage);
+      if (skillCommand) {
+        console.log('⚡ Detected skill command:', skillCommand);
+        
+        const skill = getSkill(skillCommand.skillName);
+        if (skill) {
+          // 更新进度显示 Skill 调用
+          updateProgress([
+            { status: 'in_progress', label: `调用 Skill: ${skill.name}` },
+          ]);
+
+          // 添加 Skill 调用消息
+          const skillMessageId = addMessage({
+            role: 'assistant',
+            content: `⚡ **正在执行 Skill: /${skill.name}**\n\n${skill.description}`,
+            skillCall: {
+              skillName: skill.name,
+              arguments: skillCommand.arguments,
+              status: 'executing',
+              description: skill.description,
+              allowedTools: skill.allowedTools,
+            },
+          });
+
+          // 准备 Skill 提示词
+          const skillPrompt = prepareSkillPrompt(skill, skillCommand.arguments);
+          
+          // 更新进度
+          updateProgress([
+            { status: 'completed', label: `Skill: ${skill.name}` },
+            { status: 'in_progress', label: '执行 Skill 指令' },
+          ]);
+
+          // 将 Skill 指令作为用户消息发送给 AI
+          // 这里我们不直接返回，而是继续执行，让 AI 处理 Skill 指令
+          // 修改 userMessage 为 Skill 的指令内容
+          userMessage = `用户调用了 Skill: /${skill.name} ${skillCommand.arguments.join(' ')}
+
+${skillPrompt}
+
+请按照上述 Skill 指令执行任务。`;
+
+          console.log('📝 Skill prompt prepared, continuing with AI call...');
+        } else {
+          // Skill 不存在
+          addMessage({
+            role: 'assistant',
+            content: `⚠️ 未找到 Skill: **/${skillCommand.skillName}**\n\n可用的 Skills:\n${getAllSkills().filter(s => s.userInvocable).map(s => `- \`/${s.name}\` - ${s.description}`).join('\n')}`,
+          });
+          
+          updateProgress([
+            { status: 'failed', label: `Skill 不存在: ${skillCommand.skillName}` },
+          ]);
+          
+          setState(prev => ({ ...prev, isAIResponding: false }));
+          isProcessingRef.current = false;
+          return;
+        }
+      }
+      // ========== Skill 命令检测结束 ==========
+
       // 更新进度
       updateProgress([
         { status: 'in_progress', label: 'Preparing context' },
@@ -678,6 +788,14 @@ ${getPlanningPrompt()}
 
 ${generateToolsDocumentation()}
 
+${generateSkillsDocumentation()}
+
+**SKILL USAGE GUIDELINES:**
+当用户的请求匹配某个 Skill 的描述时，你应该优先使用该 Skill 的指令来完成任务。
+- 如果用户说"解释代码"、"这段代码怎么工作"等，使用 explain-code Skill 的方法
+- 如果用户说"审查代码"、"检查代码质量"等，使用 code-review Skill 的方法
+- 遵循 Skill 中定义的步骤和格式来组织你的回答
+
 **FILE CREATION GUIDELINES:**
 
 **ALWAYS use write_file tool with COMPLETE content in the parameters:**
@@ -705,11 +823,8 @@ ${generateToolsDocumentation()}
 }
 \`\`\`
 
-**CRITICAL TOOL CALL REQUIREMENTS:**
-- When executing a task step that specifies a tool (e.g., [write_file], [list_directory]), you MUST generate the tool call
-- Do NOT just describe what you would do - actually call the tool using the format below
-- Tool call format: \`\`\`tool:tool_name\\n{parameters}\\n\`\`\`
-- If you don't generate a tool call when required, the step will FAIL
+IMPORTANT: 
+- Always use tool calls for file operations
 - The system will automatically execute your tool calls
 - You can call multiple tools in one response
 - All file paths are relative to the workspace directory (./workspace)
@@ -1130,7 +1245,7 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
     } catch (error) {
       console.error('处理 AI 请求失败:', error);
     }
-  }, [addMessage, updateProgress, setWorkingFiles]);
+  }, [addMessage, updateProgress, setWorkingFiles, loadSkillsToRegistry]);
 
   /**
    * 切换工作区

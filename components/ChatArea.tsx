@@ -11,6 +11,7 @@ import 'highlight.js/styles/github-dark.css';
 import { formatToolResult, generateToolSummary } from '@/lib/tools/result-formatter';
 import TaskPlanDisplay from './TaskPlanDisplay';
 import QuickTaskCards from './QuickTaskCards';
+import SkillCallDisplay from './SkillCallDisplay';
 import { quickTasks } from '@/lib/quick-tasks';
 
 interface ChatAreaProps {
@@ -236,6 +237,9 @@ export default function ChatArea({ taskTitle, messages, onTitleChange, onSendMes
                       {msg.content}
                     </ReactMarkdown>
                   </div>
+                )}
+                {msg.skillCall && (
+                  <SkillCallDisplay skillCall={msg.skillCall} />
                 )}
                 {msg.taskPlan && msg.taskPlan.length > 0 && (
                   <TaskPlanDisplay steps={msg.taskPlan} />

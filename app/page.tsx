@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useCowork } from '@/hooks/useCowork';
+import { useSkills } from '@/hooks/useSkills';
 import LeftSidebar from '@/components/LeftSidebar';
 import ChatArea from '@/components/ChatArea';
 import RightSidebar from '@/components/RightSidebar';
@@ -19,6 +20,22 @@ export default function Home() {
     changeWorkspace,
     workspacePath,
   } = useCowork();
+
+  // 初始化 Skills 系统
+  const { skills, isLoading: skillsLoading, error: skillsError, loadSkills } = useSkills({
+    autoLoad: true,
+  });
+
+  // Skills 加载状态日志
+  useEffect(() => {
+    if (skills.length > 0) {
+      console.log(`⚡ Skills loaded: ${skills.length} skills available`);
+      skills.forEach(s => console.log(`  - /${s.name}: ${s.description}`));
+    }
+    if (skillsError) {
+      console.error('❌ Skills loading error:', skillsError);
+    }
+  }, [skills, skillsError]);
 
   // 是否使用真实 AI（可以通过环境变量控制）
   const useRealAI = process.env.NEXT_PUBLIC_USE_REAL_AI === 'true';

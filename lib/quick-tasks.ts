@@ -9,10 +9,28 @@ export interface QuickTask {
   description: string;
   icon: string;
   prompt: string;
-  category: 'data' | 'file' | 'analysis' | 'web' | 'automation';
+  category: 'data' | 'file' | 'analysis' | 'web' | 'automation' | 'skill';
 }
 
 export const quickTasks: QuickTask[] = [
+  // Skill 测试类 - 放在最前面便于测试
+  {
+    id: 'skill-explain-code',
+    title: '代码解释 (Skill)',
+    description: '使用 explain-code Skill 解释代码',
+    icon: '⚡',
+    category: 'skill',
+    prompt: '/explain-code lib/skills/loader.ts',
+  },
+  {
+    id: 'skill-code-review',
+    title: '代码审查 (Skill)',
+    description: '使用 code-review Skill 审查代码',
+    icon: '⚡',
+    category: 'skill',
+    prompt: '/code-review lib/skills/',
+  },
+  
   // 数据分析类
   {
     id: 'api-data-analysis',
@@ -97,7 +115,7 @@ export function getTasksByCategory(category: QuickTask['category']): QuickTask[]
  * 获取所有类别
  */
 export function getAllCategories(): QuickTask['category'][] {
-  return ['data', 'file', 'analysis', 'web', 'automation'];
+  return ['data', 'file', 'analysis', 'web', 'automation', 'skill'];
 }
 
 /**
@@ -109,4 +127,5 @@ export const categoryNames: Record<QuickTask['category'], string> = {
   analysis: '代码分析',
   web: '网络请求',
   automation: '自动化',
+  skill: 'Skills 测试',
 };

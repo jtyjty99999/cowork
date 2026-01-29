@@ -25,9 +25,9 @@ export interface AIResponse {
 }
 
 export class AIService {
-  private apiKey: string;
-  private baseURL: string;
-  private model: string;
+  protected apiKey: string;
+  protected baseURL: string;
+  protected model: string;
 
   constructor(config?: {
     apiKey?: string;
