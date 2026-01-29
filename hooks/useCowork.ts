@@ -790,11 +790,24 @@ ${generateToolsDocumentation()}
 
 ${generateSkillsDocumentation()}
 
-**SKILL USAGE GUIDELINES:**
-当用户的请求匹配某个 Skill 的描述时，你应该优先使用该 Skill 的指令来完成任务。
-- 如果用户说"解释代码"、"这段代码怎么工作"等，使用 explain-code Skill 的方法
-- 如果用户说"审查代码"、"检查代码质量"等，使用 code-review Skill 的方法
-- 遵循 Skill 中定义的步骤和格式来组织你的回答
+**SKILL USAGE GUIDELINES (IMPORTANT):**
+当用户的请求匹配某个 Skill 的描述时，你**必须**使用该 Skill 的指令来完成任务，而不是直接调用工具。
+
+**匹配规则：**
+- "解释代码"、"这段代码怎么工作"、"explain code" → 使用 explain-code Skill
+- "审查代码"、"检查代码质量"、"code review" → 使用 code-review Skill
+
+**执行方式：**
+1. 首先识别用户请求是否匹配某个 Skill
+2. 如果匹配，**严格按照该 Skill 的指令步骤执行**
+3. 使用 Skill 中定义的格式（如类比、图表、审查维度等）组织回答
+4. 只有在 Skill 指令中要求使用工具时才调用工具
+
+**示例：**
+用户说"解释代码 game.html"时，你应该：
+1. 读取 game.html 文件
+2. 按照 explain-code Skill 的格式：使用类比、绘制 ASCII 图表、逐步讲解、指出陷阱
+3. 不要只是简单地列出代码功能，要用生动的方式解释
 
 **FILE CREATION GUIDELINES:**
 
