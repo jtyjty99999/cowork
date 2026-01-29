@@ -145,7 +145,6 @@ export const useCowork = () => {
           registerSkill(skill);
         }
         skillsLoadedRef.current = true;
-        console.log(`⚡ Skills loaded to registry: ${getAllSkills().length} skills`);
       }
     } catch (error) {
       console.error('Failed to load skills:', error);
@@ -436,7 +435,6 @@ export const useCowork = () => {
     let match = responseContent.match(pattern1);
     if (match) {
       extracted = match[1];
-      console.log('✅ Matched pattern 1 (language:filename)');
       return extracted;
     }
     
@@ -446,7 +444,6 @@ export const useCowork = () => {
     match = responseContent.match(pattern2);
     if (match) {
       extracted = match[1];
-      console.log('✅ Matched pattern 2 (extension only)');
       return extracted;
     }
     
@@ -455,7 +452,6 @@ export const useCowork = () => {
     const matches = [...responseContent.matchAll(pattern3)];
     if (matches.length > 0) {
       extracted = matches[matches.length - 1][1];
-      console.log('✅ Matched pattern 3 (last code block)');
       return extracted;
     }
     
@@ -468,8 +464,6 @@ export const useCowork = () => {
   const extractAndCreateArtifacts = (responseContent: string): Map<string, string> => {
     const artifactMap = new Map<string, string>();
     
-    console.log('🔍 Extracting code blocks from response...');
-    
     // 提取所有代码块 - 支持多种格式，但排除工具调用
     const codeBlockRegex = /```(\w+)(?::([^\n]+))?\n([\s\S]*?)```/g;
     let match;
@@ -480,7 +474,6 @@ export const useCowork = () => {
       
       // 跳过工具调用代码块（tool:xxx）
       if (language === 'tool' || filename?.startsWith('tool:')) {
-        console.log('⏭️  Skipping tool call block');
         continue;
       }
       
@@ -488,37 +481,19 @@ export const useCowork = () => {
       
       if (filename && !filename.includes('tool')) {
         // 有文件名的代码块，创建 Artifact
-        console.log('📦 Creating artifact for:', filename.trim());
         addArtifact(filename.trim(), content);
         artifactMap.set(filename.trim(), content);
-      } else if (language !== 'tool') {
-        // 没有文件名，但记录下来供后续匹配（排除 tool 类型）
-        console.log('📝 Found code block without filename, language:', language, 'length:', content.length);
       }
     }
     
-    console.log(`✅ Extracted ${allCodeBlocks.length} code blocks, ${artifactMap.size} with filenames`);
-    
-    // 显示所有提取到的代码块信息
-    if (allCodeBlocks.length > 0) {
-      console.log('📋 All extracted blocks:');
-      allCodeBlocks.forEach((block, idx) => {
-        console.log(`  ${idx + 1}. ${block.language}${block.filename ? ':' + block.filename : ''} - ${block.content.length} chars`);
-      });
-    }
-    
-    // 如果有代码块但没有文件名，存储最大的代码块供后续使用
+    // 如果没有带文件名的代码块，但有代码块，使用最大的一个作为 fallback代码块供后续使用
     if (allCodeBlocks.length > 0 && artifactMap.size === 0) {
       // 找到最大的代码块（通常是主要内容）
       const largestBlock = allCodeBlocks.reduce((prev, current) => 
         current.content.length > prev.content.length ? current : prev
       );
-      console.log('💡 Using largest code block as fallback:', largestBlock.language, largestBlock.content.length, 'chars');
-      console.log('💡 First 100 chars:', largestBlock.content.substring(0, 100));
       artifactMap.set('__fallback__', largestBlock.content);
     }
-    
-    console.log('📦 Final artifactMap keys:', Array.from(artifactMap.keys()));
     
     return artifactMap;
   };
@@ -527,37 +502,23 @@ export const useCowork = () => {
    * 处理工具调用中的 artifact_id 引用
    */
   const processArtifactReferences = (toolCalls: any[], artifactMap: Map<string, string>, currentArtifacts: Artifact[]) => {
-    console.log('🔧 Processing artifact references...');
-    console.log('📦 Available artifacts in map:', Array.from(artifactMap.keys()));
-    console.log('🔨 Tool calls to process:', toolCalls.map(tc => ({ tool: tc.tool, path: tc.parameters?.path, hasContent: !!tc.parameters?.content })));
-    
     toolCalls.forEach((toolCall: any) => {
       if (toolCall.tool === 'write_file') {
-        console.log(`\n🔍 Processing write_file for: ${toolCall.parameters.path}`);
-        console.log('   Has content param:', !!toolCall.parameters.content);
-        console.log('   Has artifact_id:', !!toolCall.parameters.artifact_id);
-        
         // 如果有 artifact_id，从 artifacts 中获取内容
         if (toolCall.parameters.artifact_id) {
           const artifact = currentArtifacts.find(a => a.id === toolCall.parameters.artifact_id);
           if (artifact && artifact.content) {
-            console.log('✅ Using artifact content for:', toolCall.parameters.path);
             toolCall.parameters.content = artifact.content;
             delete toolCall.parameters.artifact_id;
-          } else {
-            console.warn('⚠️ Artifact not found:', toolCall.parameters.artifact_id);
           }
         }
         // 如果没有 content 但有 path，尝试从当前响应的 artifactMap 中获取
         else if (!toolCall.parameters.content && toolCall.parameters.path) {
-          console.log('   Searching in artifactMap for:', toolCall.parameters.path);
-          
           // 尝试精确匹配
           let content = artifactMap.get(toolCall.parameters.path);
           
           // 如果没找到，尝试使用 fallback
           if (!content && artifactMap.has('__fallback__')) {
-            console.log('   Using fallback code block');
             content = artifactMap.get('__fallback__');
           }
           
@@ -566,7 +527,6 @@ export const useCowork = () => {
             const ext = toolCall.parameters.path.split('.').pop();
             for (const [key, value] of artifactMap.entries()) {
               if (key.endsWith(`.${ext}`)) {
-                console.log('   Found by extension match:', key);
                 content = value;
                 break;
               }
@@ -574,19 +534,11 @@ export const useCowork = () => {
           }
           
           if (content) {
-            console.log('✅ Found and injecting content:', content.length, 'characters');
             toolCall.parameters.content = content;
-          } else {
-            console.warn('⚠️ No content found in artifactMap for:', toolCall.parameters.path);
-            console.warn('   Available keys:', Array.from(artifactMap.keys()));
           }
-        } else {
-          console.log('   Already has content or no path');
         }
       }
     });
-    
-    console.log('\n✅ Artifact processing complete\n');
   };
 
   /**
@@ -596,7 +548,6 @@ export const useCowork = () => {
   const getRealAIResponse = useCallback(async (userMessage: string, images?: { url: string; name: string; size: number; base64?: string }[]) => {
     // 防止重复调用
     if (isProcessingRef.current) {
-      console.warn('⚠️ AI is already responding, ignoring duplicate call');
       return;
     }
     
@@ -612,7 +563,6 @@ export const useCowork = () => {
       // ========== Skill 命令检测 ==========
       const skillCommand = parseSkillCommand(userMessage);
       if (skillCommand) {
-        console.log('⚡ Detected skill command:', skillCommand);
         
         const skill = getSkill(skillCommand.skillName);
         if (skill) {
@@ -652,7 +602,6 @@ ${skillPrompt}
 
 请按照上述 Skill 指令执行任务。`;
 
-          console.log('📝 Skill prompt prepared, continuing with AI call...');
         } else {
           // Skill 不存在
           addMessage({
@@ -1133,20 +1082,7 @@ Current workspace status:${workspaceContext}${currentUploadInfo}`,
               ]);
 
               // 提取代码块并创建 Artifacts
-              console.log('📄 Response content length:', response.content.length);
-              console.log('📄 Response preview:', response.content.substring(0, 500));
               const artifactMap = extractAndCreateArtifacts(response.content);
-              
-              // 显示工具调用的详细信息
-              console.log('🔨 Tool calls details:');
-              toolCalls.forEach((tc: any, idx: number) => {
-                console.log(`  ${idx + 1}. ${tc.tool}`);
-                console.log('     Parameters:', Object.keys(tc.parameters));
-                if (tc.parameters.content) {
-                  console.log('     Content length:', tc.parameters.content.length);
-                  console.log('     Content preview:', tc.parameters.content.substring(0, 100));
-                }
-              });
               
               // 处理 artifact 引用（直接使用 artifactMap，不依赖 state）
               processArtifactReferences(toolCalls, artifactMap, []);

@@ -143,12 +143,8 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
     const invocation = createSkillInvocation(skillName, args, invokedBy);
     
     return executeSkill(invocation, {
-      onProgress: (message) => {
-        console.log(`[Skill ${skillName}] ${message}`);
-      },
+      onProgress: () => {},
       onDynamicContext: async (command) => {
-        // TODO: 实现动态上下文执行
-        console.log(`[Dynamic Context] ${command}`);
         return {
           command,
           output: `[Command output for: ${command}]`,

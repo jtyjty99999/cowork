@@ -44,13 +44,11 @@ export function registerSkill(skill: SkillDefinition): boolean {
   if (existingSkill) {
     // 项目级 skill 优先于用户级
     if (existingSkill.source === 'project' && skill.source === 'user') {
-      console.log(`Skill "${skill.name}" already registered from project, skipping user version`);
       return false;
     }
   }
   
   skillRegistry.set(skill.name, skill);
-  console.log(`Registered skill: ${skill.name} (${skill.source})`);
   return true;
 }
 

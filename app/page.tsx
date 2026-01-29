@@ -26,16 +26,6 @@ export default function Home() {
     autoLoad: true,
   });
 
-  // Skills 加载状态日志
-  useEffect(() => {
-    if (skills.length > 0) {
-      console.log(`⚡ Skills loaded: ${skills.length} skills available`);
-      skills.forEach(s => console.log(`  - /${s.name}: ${s.description}`));
-    }
-    if (skillsError) {
-      console.error('❌ Skills loading error:', skillsError);
-    }
-  }, [skills, skillsError]);
 
   // 是否使用真实 AI（可以通过环境变量控制）
   const useRealAI = process.env.NEXT_PUBLIC_USE_REAL_AI === 'true';
